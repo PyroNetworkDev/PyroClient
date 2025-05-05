@@ -1,9 +1,9 @@
 {
     "name": "Pyro-Client",
     "preductname": "Pyro Client",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "sub_version": "",
-    "changelog": "Esta es la primera version de Pyro Client.",
+    "changelog": "Mas información de esta versión en nuestro Discord",
     "description": "Launcher de minecraft para los servidores de Pyro Network.",
     "main": "src/app.js",
     "author": {
