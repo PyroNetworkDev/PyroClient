@@ -6,7 +6,7 @@ import { config, database, changePanel, appdata, setStatus, setInstanceBackgroun
 import { getHWID, checkHWID, getFetchError, playMSG, playquitMSG, addInstanceMSG, installMKLibMods, hideFolder, killMinecraftProcess } from '../MKLib.js';
 import cleanupManager from '../utils/cleanup-manager.js';
 
-const clientId = '1307003977442787451';
+const clientId = '1295615549094756392';
 const DiscordRPC = require('discord-rpc');
 const RPC = new DiscordRPC.Client({ transport: 'ipc' });
 const fs = require('fs');
@@ -28,7 +28,7 @@ RPC.on('ready', async () => {
         startTimestamp: startingTime,
         largeImageKey: 'icon',
         smallImageKey: 'verificado',
-        largeImageText: `Miguelki Network`,
+        largeImageText: `Pyro Client`,
         instance: true,
         buttons: [
             {
@@ -859,7 +859,7 @@ class Home {
                         startTimestamp: startingTime,
                         largeImageKey: 'icon',
                         smallImageKey: 'verificado',
-                        largeImageText: `Miguelki Network`,
+                        largeImageText: `Pyro Client`,
                         instance: true,
                         buttons: [
                             {
@@ -1001,7 +1001,7 @@ class Home {
                     startTimestamp: startingTime,
                     largeImageKey: 'icon',
                     smallImageKey: 'verificado',
-                    largeImageText: `Miguelki Network`,
+                    largeImageText: `Pyro Client`,
                     instance: true,
                     buttons: [
                         {
@@ -1028,7 +1028,7 @@ class Home {
                         startTimestamp: startingTime,
                         largeImageKey: 'icon',
                         smallImageKey: 'verificado',
-                        largeImageText: `Miguelki Network`,
+                        largeImageText: `Pyro Client`,
                         instance: true,
                         buttons: [
                             {
@@ -1086,7 +1086,7 @@ class Home {
                         state: `En el launcher`,
                         largeImageKey: 'icon',
                         smallImageKey: 'verificado',
-                        largeImageText: `Miguelki Network`,
+                        largeImageText: `Pyro Client`,
                         instance: true,
                         buttons: [
                             {

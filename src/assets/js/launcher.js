@@ -884,7 +884,7 @@ class Launcher {
         const promptTitle = token ? "Error de autenticación" : "Verificación de Discord";
         const promptContent = token 
           ? "No se ha podido verificar la sesión de Discord. <br><br>¿Quieres volver a intentarlo?"
-          : "Para poder acceder al launcher debes iniciar sesión con tu cuenta de Discord y estar en el servidor de Miguelki Network. <br><br>¿Quieres iniciar sesión ahora?";
+          : "Para poder acceder al launcher debes iniciar sesión con tu cuenta de Discord y estar en el servidor de Pyro Network. <br><br>¿Quieres iniciar sesión ahora?";
         
         const dialogResult = await new Promise((resolve) => {
           discordDialog.openDialog({

@@ -36,7 +36,7 @@ class Splash {
 
     async startAnimation() {
         let defaultSplashes = [
-            { "message": "Miguelki Network", "author": "Miguelki" }
+            { "message": "Pyro Client", "author": "" }
         ];
 
         let splashes = await this.fetchSplashes();
