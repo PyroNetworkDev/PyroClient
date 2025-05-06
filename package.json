@@ -2,7 +2,7 @@
     "name": "Pyro-Client",
     "preductname": "Pyro Client",
     "version": "1.0.2",
-    "sub_version": "",
+    "sub_version": "B",
     "changelog": "Mas información de esta versión en nuestro Discord",
     "description": "Launcher de minecraft para los servidores de Pyro Network.",
     "main": "src/app.js",
@@ -15,7 +15,7 @@
     "store_url": "https://tienda.pyro.rip/",
     "azuriom_url": "https://minecraft.miguelkinetwork.info/",
     "discord_url": "https://discord.gg/x4RRKFKbS7",
-    "discord_client_id": "1295615549094756392",
+    "discord_client_id": "1369014420524634175",
     "scripts": {
         "start": "cross-env-shell NODE_ENV=dev electron .",
         "dev": "cross-env-shell DEV_TOOL=open nodemon --exec npm start",
