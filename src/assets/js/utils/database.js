@@ -648,11 +648,8 @@ class database {
             // Get current config
             let config = await this.readData('configClient');
             if (!config || typeof config !== 'object') {
-                // Initialize config if it doesn't exist
-                config = {
-                    account_selected: null,
-                    instance_selct: null
-                };
+                console.warn('configClient no existe, no se puede seleccionar la cuenta');
+                return false;
             }
             
             // Update selected account

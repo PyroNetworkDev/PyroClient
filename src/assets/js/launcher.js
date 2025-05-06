@@ -85,7 +85,13 @@ class Launcher {
       console.log("Inicializando cleanup manager después de configuración inicial");
       await cleanupManager.initialize();
     } else {
-      if (configClient.launcher_config.performance_mode) {
+      // Verificar explícitamente la existencia de la propiedad launcher_config.performance_mode
+      // antes de intentar acceder a ella
+      const performanceMode = configClient && 
+                             configClient.launcher_config && 
+                             configClient.launcher_config.performance_mode;
+      
+      if (performanceMode) {
         console.log("Modo de rendimiento activado");
         document.body.classList.add('performance-mode');
         
@@ -215,25 +221,39 @@ class Launcher {
       return;
     }
     
-    
-    const configClient = this.db.readData('configClient');
-    if (configClient && configClient.launcher_config && configClient.launcher_config.performance_mode) {
-      loadingOverlay.style.transition = 'none';
-      loadingOverlay.style.opacity = '0';
-      loadingOverlay.style.visibility = 'hidden';
-      loadingOverlay.classList.remove('active');
-      return;
-    }
-    
     try {
-      loadingOverlay.classList.remove('active');
-      
-      setTimeout(() => {
-        loadingOverlay.style.opacity = '0';
-        loadingOverlay.style.visibility = 'hidden';
-      }, 800);
+      // Asegurarse de obtener configClient como Promise y usar await para resolverla
+      this.db.readData('configClient')
+        .then(configClient => {
+          // Verificar si configClient existe y si tiene la estructura correcta
+          if (configClient && configClient.launcher_config && configClient.launcher_config.performance_mode) {
+            loadingOverlay.style.transition = 'none';
+            loadingOverlay.style.opacity = '0';
+            loadingOverlay.style.visibility = 'hidden';
+            loadingOverlay.classList.remove('active');
+          } else {
+            // Comportamiento normal si no hay modo rendimiento o no hay configClient
+            loadingOverlay.classList.remove('active');
+            
+            setTimeout(() => {
+              loadingOverlay.style.opacity = '0';
+              loadingOverlay.style.visibility = 'hidden';
+            }, 800);
+          }
+        })
+        .catch(err => {
+          // Si hay error al leer configClient, aplicar comportamiento predeterminado
+          console.error("Error al leer configClient:", err);
+          loadingOverlay.classList.remove('active');
+          
+          setTimeout(() => {
+            loadingOverlay.style.opacity = '0';
+            loadingOverlay.style.visibility = 'hidden';
+          }, 800);
+        });
     } catch (err) {
       console.error("Error al ocultar pantalla de carga:", err);
+      // Comportamiento de fallback si hay algún error
       loadingOverlay.style.opacity = '0';
       loadingOverlay.style.visibility = 'hidden';
       loadingOverlay.style.display = 'none';
@@ -598,6 +618,7 @@ class Launcher {
             music_muted: false,
             terms_accepted: false,
             termsAcceptedDate: null,
+            discord_token: null,
             java_config: {
               java_path: null,
               java_memory: {
@@ -637,20 +658,44 @@ class Launcher {
       return;
     }
     
-    const configClient = this.db.readData('configClient');
-    if (configClient && configClient.launcher_config && configClient.launcher_config.performance_mode) {
-      loadingOverlay.style.transition = 'none';
+    try {
+      // Asegurarse de obtener configClient como Promise y usar await para resolverla
+      this.db.readData('configClient')
+        .then(configClient => {
+          // Verificar si configClient existe y si tiene la estructura correcta
+          if (configClient && configClient.launcher_config && configClient.launcher_config.performance_mode) {
+            loadingOverlay.style.transition = 'none';
+            loadingOverlay.style.opacity = '0';
+            loadingOverlay.style.visibility = 'hidden';
+            loadingOverlay.classList.remove('active');
+          } else {
+            // Comportamiento normal para transiciones suaves
+            loadingOverlay.style.transition = 'opacity 0.5s ease, visibility 0.5s ease';
+            loadingOverlay.style.opacity = '0';
+            
+            setTimeout(() => {
+              loadingOverlay.style.visibility = 'hidden';
+              loadingOverlay.classList.remove('active');
+            }, 500);
+          }
+        })
+        .catch(err => {
+          // Si hay error al leer configClient, aplicar comportamiento predeterminado
+          console.error("Error al leer configClient:", err);
+          loadingOverlay.style.transition = 'opacity 0.5s ease, visibility 0.5s ease';
+          loadingOverlay.style.opacity = '0';
+          
+          setTimeout(() => {
+            loadingOverlay.style.visibility = 'hidden';
+            loadingOverlay.classList.remove('active');
+          }, 500);
+        });
+    } catch (err) {
+      console.error("Error al ocultar pantalla de carga con fade:", err);
+      // Comportamiento de fallback si hay algún error
       loadingOverlay.style.opacity = '0';
       loadingOverlay.style.visibility = 'hidden';
       loadingOverlay.classList.remove('active');
-    } else {
-      loadingOverlay.style.transition = 'opacity 0.5s ease, visibility 0.5s ease';
-      loadingOverlay.style.opacity = '0';
-      
-      setTimeout(() => {
-        loadingOverlay.style.visibility = 'hidden';
-        loadingOverlay.classList.remove('active');
-      }, 500);
     }
   }
 
@@ -793,41 +838,17 @@ class Launcher {
   }
 
   async initConfigClient() {
-    console.log("Inicializando Config Client...");
+    console.log("Verificando existencia de Config Client...");
     let configClient = await this.db.readData("configClient");
 
     if (!configClient) {
-      await this.db.createData("configClient", {
-        account_selected: null,
-        instance_selct: null,
-        mods_enabled: [],
-        music_muted: false,
-        terms_accepted: false,
-        java_config: {
-          java_path: null,
-          java_memory: {
-            min: 2,
-            max: 4,
-          },
-        },
-        game_config: {
-          screen_size: {
-            width: 854,
-            height: 480,
-          },
-        },
-        launcher_config: {
-          download_multi: 5,
-          theme: "auto",
-          closeLauncher: "close-launcher",
-          intelEnabledMac: true,
-          music_muted: false
-        },
-      });
+      console.log("No existe configuración. Se utilizará la configuración inicial.");
+      return false;
     } else if (configClient.terms_accepted === undefined) {
       configClient.terms_accepted = false;
       await this.db.updateData("configClient", configClient);
     }
+    return true;
   }
 
   createPanels(...panels) {
