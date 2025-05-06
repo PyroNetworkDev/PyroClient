@@ -6,16 +6,18 @@ import { config, database, changePanel, appdata, setStatus, setInstanceBackgroun
 import { getHWID, checkHWID, getFetchError, playMSG, playquitMSG, addInstanceMSG, installMKLibMods, hideFolder, killMinecraftProcess } from '../MKLib.js';
 import cleanupManager from '../utils/cleanup-manager.js';
 
-const clientId = '1295615549094756392';
+const clientId = pkg.discord_client_id;
 const DiscordRPC = require('discord-rpc');
 const RPC = new DiscordRPC.Client({ transport: 'ipc' });
 const fs = require('fs');
 const path = require('path');
+const startingTime = Date.now();
 let dev = process.env.NODE_ENV === 'dev';
 let rpcActive = true;
-let startingTime = Date.now();
 let LogBan = false;
 let playing = false;
+let username;
+let discordUrl = pkg.discord_url;
 DiscordRPC.register(clientId);
 
 async function setActivity() {
@@ -23,23 +25,17 @@ async function setActivity() {
 };
 RPC.on('ready', async () => {
     setActivity();
+    username = await getUsername();
     RPC.setActivity({
         state: `En el launcher`,
         startTimestamp: startingTime,
         largeImageKey: 'icon',
-        smallImageKey: 'verificado',
-        largeImageText: `Pyro Client`,
-        instance: true,
-        buttons: [
-            {
-                label: `Discord`,
-                url: pkg.discord_url,
-            }
-        ]
-    }).catch();
+        largeImageText: pkg.preductname,
+        instance: true
+    }).catch(err => {console.error('Error al establecer la actividad de Discord:', err)});
     setInterval(() => {
         setActivity();
-    }, 86400 * 1000);
+    }, 1000);
 });
 RPC.login({ clientId }).catch(err => {
     console.error('Servidor de Discord no detectado. Tranquilo, esto no es una crisis.')
@@ -552,9 +548,94 @@ class Home {
             return;
         }
         
-        
         let instance = await config.getInstanceList();
-        let authenticator = await this.db.readData('accounts', configClient.account_selected);
+        
+        // Verify valid account selection and retrieve account
+        if (!configClient.account_selected) {
+            this.enablePlayButton();
+            let popupError = new popup();
+            popupError.openPopup({
+                title: 'Error de cuenta',
+                content: 'No hay una cuenta seleccionada. Por favor, selecciona una cuenta para continuar.',
+                color: 'red',
+                options: true
+            });
+            return;
+        }
+        
+        console.log(`Obteniendo cuenta con ID: ${configClient.account_selected}`);
+        
+        // First, attempt to sync account IDs to ensure consistency
+        await this.db.syncAccountIds();
+        
+        // Try multiple methods to ensure we get the account
+        let authenticator = null;
+        
+        try {
+            // Method 1: Get account directly
+            authenticator = await this.db.getSelectedAccount();
+            
+            if (authenticator) {
+                console.log(`Cuenta obtenida mediante getSelectedAccount: ${authenticator.name} (ID: ${authenticator.ID})`);
+            }
+        } catch (err) {
+            console.warn(`Error al obtener cuenta seleccionada: ${err.message}`);
+        }
+        
+        // Method 2: Direct reading by ID if Method 1 failed
+        if (!authenticator) {
+            try {
+                authenticator = await this.db.readData('accounts', configClient.account_selected);
+                
+                if (authenticator) {
+                    console.log(`Cuenta obtenida mediante readData: ${authenticator.name} (ID: ${authenticator.ID})`);
+                }
+            } catch (err) {
+                console.warn(`Error al leer cuenta directamente: ${err.message}`);
+            }
+        }
+        
+        // Method 3: If both methods failed, try getting all accounts and filter
+        if (!authenticator) {
+            console.log(`Intentando obtener cuenta desde la lista completa...`);
+            let allAccounts = await this.db.readAllData('accounts');
+            if (Array.isArray(allAccounts) && allAccounts.length > 0) {
+                // Try with both string and number comparison
+                authenticator = allAccounts.find(acc => 
+                    String(acc.ID) === String(configClient.account_selected) || 
+                    Number(acc.ID) === Number(configClient.account_selected)
+                );
+                
+                if (authenticator) {
+                    console.log(`Cuenta encontrada por método alternativo: ${authenticator.name} (ID: ${authenticator.ID})`);
+                    
+                    // Update the account in the database to sync
+                    await this.db.updateData('accounts', authenticator, authenticator.ID);
+                }
+            }
+        }
+        
+        if (!authenticator) {
+            console.error(`No se pudo encontrar la cuenta con ID: ${configClient.account_selected}`);
+            
+            // Get all accounts for logging
+            let allAccounts = await this.db.readAllData('accounts');
+            if (Array.isArray(allAccounts)) {
+                console.log(`Cuentas disponibles: ${allAccounts.map(a => `${a.name}(${a.ID})`).join(', ')}`);
+            }
+            
+            this.enablePlayButton();
+            let popupError = new popup();
+            popupError.openPopup({
+                title: 'Error de cuenta',
+                content: 'La cuenta seleccionada no se encuentra disponible. Por favor, selecciona otra cuenta o inicia sesión nuevamente.',
+                color: 'red',
+                options: true
+            });
+            return;
+        }
+        
+        console.log(`Cuenta recuperada: ${authenticator.name} (ID: ${authenticator.ID})`);
         let options = instance.find(i => i.name == configClient.instance_selct);
                 
         if (!options) {
@@ -740,22 +821,6 @@ class Home {
         console.log("Configurando opciones de lanzamiento...");
         let launch = new Launch();
         
-        // Verificar y corregir la estructura del objeto authenticator
-        if (authenticator && !authenticator.meta) {
-            authenticator.meta = {};
-        }
-        
-        if (authenticator && !authenticator.meta.type) {
-            // Determinar el tipo basado en las propiedades disponibles
-            if (authenticator.accessToken && authenticator.accessToken.startsWith("ey")) {
-                authenticator.meta.type = "Microsoft";
-            } else if (authenticator.user && authenticator.user.username) {
-                authenticator.meta.type = "Mojang";
-            } else {
-                authenticator.meta.type = "Mojang"; // Default fallback
-            }
-            console.log(`Tipo de autenticación detectado: ${authenticator.meta.type}`);
-        }
         
         let opt = {
             url: options.url,
@@ -854,19 +919,15 @@ class Home {
                 console.log(e);
 
                 if (rpcActive) {
+                    username = await getUsername();
                     RPC.setActivity({
                         state: `Jugando a ${configClient.instance_selct}`,
                         startTimestamp: startingTime,
                         largeImageKey: 'icon',
-                        smallImageKey: 'verificado',
-                        largeImageText: `Pyro Client`,
-                        instance: true,
-                        buttons: [
-                            {
-                                label: `Discord`,
-                                url: pkg.discord_url,
-                            }
-                        ]
+                        smallImageKey: `https://minotar.net/helm/${username}/512.png`,
+                        smallImageText: username,
+                        largeImageText: pkg.preductname,
+                        instance: true
                     })
                 }
                 
@@ -996,19 +1057,13 @@ class Home {
             }
             
             if (rpcActive) {
+                username = await getUsername();
                 RPC.setActivity({
                     state: `En el launcher`,
                     startTimestamp: startingTime,
                     largeImageKey: 'icon',
-                    smallImageKey: 'verificado',
-                    largeImageText: `Pyro Client`,
-                    instance: true,
-                    buttons: [
-                        {
-                            label: `Discord`,
-                            url: pkg.discord_url,
-                        }
-                    ]
+                    largeImageText: pkg.preductname,
+                    instance: true
                 }).catch();
                 playquitMSG(configClient.instance_selct);
                 playing = false;
@@ -1023,19 +1078,15 @@ class Home {
                     ipcRenderer.send("main-window-show");
                 }
                 if (rpcActive) {
+                    username = getUsername();
                     RPC.setActivity({
                         state: `En el launcher`,
                         startTimestamp: startingTime,
                         largeImageKey: 'icon',
-                        smallImageKey: 'verificado',
-                        largeImageText: `Pyro Client`,
-                        instance: true,
-                        buttons: [
-                            {
-                                label: `Discord`,
-                                url: pkg.discord_url,
-                            }
-                        ]
+                        smallImageKey: `https://minotar.net/helm/${username}/512.png`,
+                        smallImageText: username,
+                        largeImageText: pkg.preductname,
+                        instance: true
                     }).catch();
                 }
                 
@@ -1082,18 +1133,13 @@ class Home {
                 this.enablePlayButton();
                 
                 if (rpcActive) {
+                    username = getUsername();
                     RPC.setActivity({
                         state: `En el launcher`,
                         largeImageKey: 'icon',
                         smallImageKey: 'verificado',
-                        largeImageText: `Pyro Client`,
-                        instance: true,
-                        buttons: [
-                            {
-                                label: `Discord`,
-                                url: pkg.discord_url,
-                            }
-                        ]
+                        largeImageText: pkg.preductname,
+                        instance: true
                     }).catch();
                 }
             }

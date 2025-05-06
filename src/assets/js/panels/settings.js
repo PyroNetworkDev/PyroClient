@@ -371,10 +371,13 @@ class Settings {
                     }
 
                     // Primero comprobamos si la cuenta existe 
+                    console.log(`Verificando cuenta con ID: ${id}`);
                     let allAccounts = await this.db.readAllData('accounts');
+                    console.log(`Total de cuentas encontradas: ${allAccounts.length}`);
                     let account = allAccounts.find(acc => String(acc.ID) === String(id));
 
                     if (!account) {
+                        console.error(`No se encontró cuenta con ID: ${id}`);
                         popupAccount.closePopup();
                         popupAccount.openPopup({
                             title: 'Error',
@@ -385,6 +388,7 @@ class Settings {
                         return;
                     }
 
+                    console.log(`Cuenta encontrada: ${account.name} (ID: ${account.ID})`);
                     let configClient = await this.setInstance(account);
                     await accountSelect(account);
                     
@@ -395,6 +399,7 @@ class Settings {
                     }
                     
                     configClient.account_selected = account.ID;
+                    console.log(`Actualizando cuenta seleccionada en configClient a: ${account.ID}`);
                     await this.db.updateData('configClient', configClient);
                     popupAccount.closePopup();
                     return;
@@ -418,6 +423,8 @@ class Settings {
                         return;
                     }
 
+                    console.log(`Starting deletion process for account ID: ${deleteId}`);
+
                     // Pedir confirmación antes de eliminar
                     const confirmResult = await new Promise(resolve => {
                         popupAccount.openDialog({
@@ -429,6 +436,7 @@ class Settings {
                     });
 
                     if (confirmResult === 'cancel') {
+                        console.log("Account deletion cancelled by user");
                         return;
                     }
 
@@ -438,9 +446,15 @@ class Settings {
                         color: 'var(--color)'
                     });
 
-                    // Verificar que la cuenta existe antes de intentar eliminarla
+                    // Before deletion, verify that the account exists
                     let allAccounts = await this.db.readAllData('accounts');
-                    let accountToDelete = allAccounts.find(acc => String(acc.ID) === String(deleteId));
+                    console.log(`Found ${allAccounts.length} accounts before deletion`);
+                    console.log(`Current accounts: ${allAccounts.map(acc => `${acc.name}(${acc.ID})`).join(', ')}`);
+                    
+                    // Verify using both string and number comparison
+                    let accountToDelete = allAccounts.find(acc => 
+                        String(acc.ID) === String(deleteId) || Number(acc.ID) === Number(deleteId)
+                    );
 
                     if (!accountToDelete) {
                         popupAccount.closePopup();
@@ -452,53 +466,86 @@ class Settings {
                         });
                         return;
                     }
+                    
+                    console.log(`Found account to delete: ${accountToDelete.name} with ID ${accountToDelete.ID}`);
+                    
+                    // Get configClient BEFORE attempting to delete the account
+                    let configClient = await this.db.readData('configClient');
+                    if (!configClient) {
+                        configClient = {
+                            account_selected: null,
+                            instance_selct: null,
+                            launcher_config: {
+                                closeLauncher: "close-launcher",
+                                download_multi: 3,
+                                theme: "auto",
+                                music_muted: false,
+                                performance_mode: false
+                            }
+                        };
+                    }
 
-                    // Eliminar la cuenta de la base de datos
-                    await this.db.deleteData('accounts', deleteId);
+                    // Guardar una copia de la configuración original por si acaso
+                    const originalConfig = JSON.parse(JSON.stringify(configClient));
 
-                    // Eliminar el elemento visual
+                    // Perform the account deletion
+                    console.log(`Deleting account with ID: ${deleteId}`);
+                    const deleted = await this.db.deleteData('accounts', deleteId);
+                    
+                    if (!deleted) {
+                        popupAccount.closePopup();
+                        popupAccount.openPopup({
+                            title: 'Error',
+                            content: `No se pudo eliminar la cuenta (ID: ${deleteId}).`,
+                            color: 'red',
+                            options: true
+                        });
+                        return;
+                    }
+                    
+                    // Verify the deletion was successful
+                    allAccounts = await this.db.readAllData('accounts');
+                    console.log(`Found ${allAccounts.length} accounts after deletion`);
+                    console.log(`Updated accounts: ${allAccounts.map(acc => `${acc.name}(${acc.ID})`).join(', ')}`);
+                    
+                    // Double-check the account was actually deleted
+                    const stillExists = allAccounts.some(acc => 
+                        String(acc.ID) === String(deleteId) || Number(acc.ID) === Number(deleteId)
+                    );
+                    
+                    if (stillExists) {
+                        console.error(`Account with ID ${deleteId} still exists after deletion!`);
+                        popupAccount.closePopup();
+                        popupAccount.openPopup({
+                            title: 'Error',
+                            content: `Ocurrió un error al eliminar la cuenta. Por favor, inténtalo de nuevo.`,
+                            color: 'red',
+                            options: true
+                        });
+                        return;
+                    }
+
+                    // Remove the account element from the UI
                     let deleteProfile = document.getElementById(`${deleteId}`);
                     let accountListElement = document.querySelector('.accounts-list');
                     
                     if (deleteProfile && accountListElement.contains(deleteProfile)) {
                         accountListElement.removeChild(deleteProfile);
+                        console.log(`Removed account element from UI (ID: ${deleteId})`);
                     } else {
                         console.warn(`No se encontró el elemento DOM para la cuenta ID: ${deleteId}`);
                     }
 
-                    // Verificar que tengamos otras cuentas disponibles después de eliminar esta
-                    allAccounts = allAccounts.filter(acc => String(acc.ID) !== String(deleteId));
-                    
-                    // Verificar si no quedan cuentas disponibles
-                    if (!allAccounts || allAccounts.length === 0) {
-                        configClient.account_selected = null;
-                        await this.db.updateData('configClient', configClient);
-                        
-                        popupAccount.closePopup();
-                        popupAccount.openPopup({
-                            title: 'Cuenta eliminada',
-                            content: 'La cuenta se eliminó correctamente. Serás redirigido al panel de inicio de sesión ya que no quedan cuentas disponibles.',
-                            color: 'var(--color)',
-                            options: true,
-                            callback: () => {
-                                // Asegurar que se redirija al login después de cerrar el popup
-                                changePanel('login');
-                            }
-                        });
-                        
-                        // Asegurarse de que el botón de añadir cuenta esté visible
-                        this.ensureAddAccountButton();
-                        return;
-                    }
-
-                    let configClient = await this.db.readData('configClient');
-
-                    // Si la cuenta eliminada era la seleccionada, cambiar a otra
+                    // If the deleted account was selected, update the selection
                     if (configClient.account_selected == deleteId) {
-                        // Asegurarse de que hay al menos una cuenta disponible
+                        console.log(`Deleted account was the selected one (ID: ${deleteId})`);
+                        
+                        // Find another account to select
                         if (allAccounts.length > 0) {
                             const nextAccount = allAccounts[0];
                             configClient.account_selected = nextAccount.ID;
+                            console.log(`Setting new selected account: ${nextAccount.name} (ID: ${nextAccount.ID})`);
+                            
                             await accountSelect(nextAccount);
                             
                             // Verificar si se debe habilitar la personalización de skin
@@ -511,7 +558,10 @@ class Settings {
                             try {
                                 let newInstanceSelect = await this.setInstance(nextAccount);
                                 configClient.instance_selct = newInstanceSelect.instance_selct;
+                                
+                                // Guardar la nueva configuración
                                 await this.db.updateData('configClient', configClient);
+                                console.log(`Updated configClient with new selections`);
                             } catch (error) {
                                 console.warn(`Error al obtener instancia después de cambiar cuenta: ${error.message}`);
                                 // Continuar con la configuración actual si hay un error
@@ -527,9 +577,49 @@ class Settings {
                                 color: 'var(--color)',
                                 options: true
                             });
+                        } else {
+                            // No accounts left - CRITICAL CASE
+                            console.log(`No accounts left, clearing account selection and resetting configClient`);
+                            
+                            // Asegurarse de que account_selected sea null
+                            configClient.account_selected = null;
+                            
+                            // Guardar la configuración actualizada
+                            await this.db.updateData('configClient', configClient);
+                            
+                            popupAccount.closePopup();
+                            popupAccount.openPopup({
+                                title: 'Cuenta eliminada',
+                                content: 'La cuenta se eliminó correctamente. Serás redirigido al panel de inicio de sesión ya que no quedan cuentas disponibles.',
+                                color: 'var(--color)',
+                                options: true,
+                                callback: () => {
+                                    // Asegurar que se redirija al login después de cerrar el popup
+                                    changePanel('login');
+                                }
+                            });
                         }
                     } else {
                         // La cuenta eliminada no era la seleccionada
+                        // Asegurarnos de que configClient sigue teniendo account_selected válido
+                        if (allAccounts.length === 0) {
+                            configClient.account_selected = null;
+                        } else if (configClient.account_selected) {
+                            // Verificar que la cuenta seleccionada siga existiendo
+                            const accountExists = allAccounts.some(acc => 
+                                Number(acc.ID) === Number(configClient.account_selected) || 
+                                String(acc.ID) === String(configClient.account_selected)
+                            );
+                            
+                            if (!accountExists) {
+                                console.warn(`Selected account ${configClient.account_selected} no longer exists, selecting first available`);
+                                configClient.account_selected = allAccounts[0].ID;
+                            }
+                        }
+                        
+                        // Guardar la configuración actualizada
+                        await this.db.updateData('configClient', configClient);
+                        
                         popupAccount.closePopup();
                         
                         // Mensaje cuando se elimina una cuenta que no era la seleccionada
@@ -541,7 +631,7 @@ class Settings {
                         });
                     }
                     
-                    // Asegurarse de que el botón de añadir cuenta esté visible después de eliminar una cuenta
+                    // Ensure the "add account" button is visible
                     this.ensureAddAccountButton();
                 }
             } catch (err) {

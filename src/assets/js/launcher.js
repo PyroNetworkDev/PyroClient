@@ -1484,10 +1484,32 @@ class Launcher {
             return changePanel("login");
         }
         
+        // Validate all refreshed accounts have valid IDs
+        refreshedAccounts = refreshedAccounts.filter(acc => 
+            acc && typeof acc === 'object' && acc.ID !== undefined && acc.name
+        );
+        
+        console.log(`Cuentas validadas después de refresco: ${refreshedAccounts.length}`);
+        console.log(`IDs después de refresco: ${refreshedAccounts.map(acc => acc.ID).join(', ')}`);
+        
+        // Ensure account_selected actually exists in the refreshed accounts
+        if (account_selected) {
+            const accountExists = refreshedAccounts.some(acc => 
+                String(acc.ID) === String(account_selected)
+            );
+            
+            if (!accountExists) {
+                console.warn(`La cuenta seleccionada ID:${account_selected} ya no existe, eligiendo primera cuenta disponible`);
+                account_selected = refreshedAccounts[0].ID;
+                configClient.account_selected = account_selected;
+                await this.db.updateData("configClient", configClient);
+            }
+        }
+        
         // Asegurar que las cuentas actualizadas sean persistidas como un array
         try {
             if (!refreshedAccounts || !Array.isArray(refreshedAccounts)) {
-                console.error("refreshedAccounts no es un array válido");
+                console.error("Error crítico: refreshedAccounts no es un array");
                 refreshedAccounts = [];
             }
             console.log(`Intentando guardar ${refreshedAccounts.length} cuentas refrescadas`);
@@ -1496,31 +1518,52 @@ class Launcher {
             let validAccounts = refreshedAccounts.filter(acc => acc && typeof acc === 'object' && acc.ID !== undefined);
             
             if (validAccounts.length !== refreshedAccounts.length) {
-                console.warn(`Se encontraron ${refreshedAccounts.length - validAccounts.length} cuentas inválidas que serán omitidas`);
+                console.warn(`Filtradas ${refreshedAccounts.length - validAccounts.length} cuentas inválidas`);
+                refreshedAccounts = validAccounts;
             }
             
-            if (validAccounts.length > 0) {
-                // Asegurarse de que se guarde como array
-                if (!Array.isArray(validAccounts)) {
-                    validAccounts = [validAccounts];
-                    console.log("Convirtiendo a array para guardado");
-                }
+            if (refreshedAccounts.length > 0) {
+                // Check for duplicate IDs and fix them
+                const seenIds = new Set();
+                let needsIdFix = false;
                 
-                // Verificar explícitamente que validAccounts sea un array antes de guardarlo
-                if (Array.isArray(validAccounts)) {
-                    await this.db.updateData("accounts", validAccounts);
-                    console.log(`Guardadas ${validAccounts.length} cuentas correctamente como array`);
-                } else {
-                    console.error("Error crítico: validAccounts no es un array después de la conversión");
-                }
+                refreshedAccounts = refreshedAccounts.map((acc, index) => {
+                    // Deep copy to avoid reference issues
+                    const accCopy = JSON.parse(JSON.stringify(acc));
+                    
+                    // Ensure ID is a number
+                    let id = parseInt(String(accCopy.ID));
+                    if (isNaN(id)) {
+                        id = index + 1;  // Assign sequential ID
+                        needsIdFix = true;
+                    }
+                    
+                    // Check for duplicate IDs
+                    if (seenIds.has(id)) {
+                        id = Math.max(...Array.from(seenIds)) + 1; // Assign next highest ID
+                        needsIdFix = true;
+                    }
+                    
+                    seenIds.add(id);
+                    
+                    if (needsIdFix) {
+                        accCopy.ID = id;
+                    }
+                    
+                    return accCopy;
+                });
+                
+                // Log IDs before saving
+                console.log(`Guardando cuentas con IDs: ${refreshedAccounts.map(acc => acc.ID).join(', ')}`);
+                
+                await this.db.updateData("accounts", refreshedAccounts);
+                console.log(`Guardadas ${refreshedAccounts.length} cuentas correctamente como array`);
             } else {
                 console.warn("No hay cuentas válidas para guardar");
-                // Si no hay cuentas válidas, guardar un array vacío para evitar problemas
                 await this.db.updateData("accounts", []);
             }
         } catch (error) {
             console.error("Error al guardar las cuentas:", error);
-            // Intentar guardar un array vacío en caso de error para evitar problemas
             try {
                 await this.db.updateData("accounts", []);
             } catch (innerError) {
@@ -1540,6 +1583,7 @@ class Launcher {
             let uuid = refreshedAccounts[0].ID;
             if (uuid) {
                 configClient.account_selected = uuid;
+                console.log(`Seleccionando cuenta por defecto con ID: ${uuid}, nombre: ${refreshedAccounts[0].name}`);
                 await this.db.updateData("configClient", configClient);
                 await accountSelect(refreshedAccounts[0]);
                 if (refreshedAccounts[0].meta && refreshedAccounts[0].meta.type == 'AZauth') clickableHead(true);
@@ -1548,15 +1592,17 @@ class Launcher {
             }
         } else if (account_selected) {
             // Asegurar que la cuenta seleccionada exista
+            console.log(`Verificando cuenta seleccionada ID: ${account_selected}`);
             const selectedAccount = refreshedAccounts.find(acc => acc && String(acc.ID) === String(account_selected));
             if (selectedAccount) {
+                console.log(`Cuenta seleccionada encontrada: ${selectedAccount.name} (ID: ${selectedAccount.ID})`);
                 await accountSelect(selectedAccount);
                 if (selectedAccount.meta && selectedAccount.meta.type == 'AZauth') clickableHead(true);
                 else clickableHead(false);
                 await setUsername(selectedAccount.name);
             } else if (refreshedAccounts.length > 0) {
                 // Si la cuenta seleccionada no existe pero hay otras cuentas, seleccionar la primera
-                console.log(`Cuenta seleccionada ID:${account_selected} no encontrada, seleccionando primera cuenta disponible`);
+                console.log(`Cuenta seleccionada ID:${account_selected} no encontrada, seleccionando primera cuenta disponible: ${refreshedAccounts[0].name} (ID: ${refreshedAccounts[0].ID})`);
                 configClient.account_selected = refreshedAccounts[0].ID;
                 await this.db.updateData("configClient", configClient);
                 await accountSelect(refreshedAccounts[0]);

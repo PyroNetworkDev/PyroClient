@@ -108,50 +108,84 @@ class database {
     async readData(tableName, key = 1) {
         return this.execute(async () => {
             // Ensure key is treated as a number for compatibility
-            key = Number(key);
+            let keyId = Number(key);
             
-            // For accounts, check if searching by ID
-            if (tableName === 'accounts' && key !== 1) {
-                const account = await encryptedStorage.getAccount(key);
+            // For accounts table with specific ID
+            if (tableName === 'accounts' && key !== undefined) {
+                console.log(`Reading single account with ID: ${keyId}`);
+                
+                // Get all accounts first to ensure we have the freshest data
+                const allAccounts = await encryptedStorage.getAllAccounts();
+                
+                if (!Array.isArray(allAccounts) || allAccounts.length === 0) {
+                    console.warn(`Account with ID ${keyId} not found - no accounts available`);
+                    return undefined;
+                }
+                
+                // Try both string and number comparison to ensure we find the account
+                // First try with number comparison (more strict)
+                let account = allAccounts.find(acc => 
+                    acc && Number(acc.ID) === keyId
+                );
+                
+                // If not found with number comparison, try with string comparison
+                if (!account) {
+                    account = allAccounts.find(acc => 
+                        acc && String(acc.ID) === String(keyId)
+                    );
+                    
+                    if (account) {
+                        console.log(`Found account: ${account.name} with ID: ${account.ID} using string comparison`);
+                    }
+                } else {
+                    console.log(`Found account: ${account.name} with ID: ${account.ID} using number comparison`);
+                }
                 
                 if (!account) {
-                    console.warn(`Account with ID ${key} not found`);
+                    console.warn(`Account with ID ${keyId} not found in readData`);
+                    console.log(`Available accounts: ${allAccounts.map(a => `${a?.name}(${a?.ID})`).join(', ')}`);
                     return undefined; // Return undefined to match original behavior
                 }
                 
                 // Ensure ID is a number for compatibility
-                if (account.ID !== undefined) {
-                    account.ID = Number(account.ID);
-                }
+                const accountCopy = JSON.parse(JSON.stringify(account));
+                accountCopy.ID = Number(accountCopy.ID);
+                return accountCopy;
+            } 
+            // For accounts with no specific ID (get all accounts)
+            else if (tableName === 'accounts') {
+                console.log(`Reading all accounts (no specific ID provided)`);
+                const accounts = await encryptedStorage.getAllAccounts();
                 
-                return account;
-            } else {
-                // For configClient or all accounts, load the entire file
+                // Ensure we always return an array
+                if (!Array.isArray(accounts)) {
+                    console.warn(`Read non-array account data, fixing...`);
+                    if (typeof accounts === 'object' && accounts !== null && accounts.ID !== undefined && accounts.name) {
+                        // Convert single account object to array with numeric ID
+                        const singleAccount = { ...accounts };
+                        singleAccount.ID = Number(singleAccount.ID);
+                        return [singleAccount];
+                    }
+                    return [];
+                } else {
+                    // Ensure all IDs are numbers for compatibility
+                    return accounts.map(account => {
+                        if (account && account.ID !== undefined) {
+                            const accountCopy = JSON.parse(JSON.stringify(account));
+                            accountCopy.ID = Number(accountCopy.ID);
+                            return accountCopy;
+                        }
+                        return account;
+                    });
+                }
+            } 
+            // For configClient or other data
+            else {
+                // Load the entire file
                 const data = await encryptedStorage.loadData(tableName);
                 
                 // Handle empty data
                 if (!data) return undefined;
-                
-                // Ensure accounts is always an array
-                if (tableName === 'accounts') {
-                    if (!Array.isArray(data)) {
-                        console.warn(`Read non-array account data, fixing...`);
-                        if (typeof data === 'object' && data.ID !== undefined && data.name) {
-                            // Convert single account object to array with numeric ID
-                            data.ID = Number(data.ID);
-                            return [data];
-                        }
-                        return [];
-                    } else {
-                        // Ensure all IDs are numbers for compatibility
-                        return data.map(account => {
-                            if (account && account.ID !== undefined) {
-                                account.ID = Number(account.ID);
-                            }
-                            return account;
-                        });
-                    }
-                }
                 
                 return data;
             }
@@ -175,12 +209,18 @@ class database {
                 }
                 
                 // Ensure all IDs are numbers for compatibility
-                return accounts.map(account => {
+                const normalizedAccounts = accounts.map(account => {
                     if (account && account.ID !== undefined) {
-                        account.ID = Number(account.ID);
+                        // Create a fresh copy to avoid reference issues
+                        const accountCopy = JSON.parse(JSON.stringify(account));
+                        accountCopy.ID = Number(accountCopy.ID);
+                        return accountCopy;
                     }
                     return account;
                 });
+                
+                console.log(`ReadAllData found ${normalizedAccounts.length} accounts with IDs: ${normalizedAccounts.map(a => a?.ID).join(', ')}`);
+                return normalizedAccounts;
             } else {
                 // For other data types
                 const data = await encryptedStorage.loadData(tableName);
@@ -212,6 +252,19 @@ class database {
                     dataCopy.ID = Number(dataCopy.ID);
                 }
 
+                // Verify the account exists before updating
+                const allAccounts = await encryptedStorage.getAllAccounts();
+                const accountExists = Array.isArray(allAccounts) && 
+                    allAccounts.some(acc => Number(acc.ID) === key || String(acc.ID) === String(key));
+                
+                if (!accountExists) {
+                    console.log(`Account with ID ${key} does not exist, attempting to add instead of update`);
+                    // Force the ID to match what was requested
+                    dataCopy.ID = key;
+                    const addedAccount = await encryptedStorage.addAccount(dataCopy);
+                    return addedAccount !== null;
+                }
+
                 const updated = await encryptedStorage.updateAccount(dataCopy, key);
                 if (!updated) {
                     console.warn(`Failed to update account with ID: ${key}`);
@@ -228,7 +281,29 @@ class database {
                         
                         // Ensure ID is a number for compatibility
                         dataCopy.ID = Number(dataCopy.ID);
-                        dataCopy = [dataCopy];
+                        
+                        // Check if the account exists in the current data
+                        const allAccounts = await encryptedStorage.getAllAccounts();
+                        const accountExists = Array.isArray(allAccounts) && 
+                            allAccounts.some(acc => Number(acc.ID) === Number(dataCopy.ID) || 
+                                                  String(acc.ID) === String(dataCopy.ID));
+                        
+                        if (accountExists) {
+                            // If the account exists, update it in the array
+                            const updatedAccounts = allAccounts.map(acc => {
+                                if (Number(acc.ID) === Number(dataCopy.ID) || 
+                                    String(acc.ID) === String(dataCopy.ID)) {
+                                    return dataCopy;
+                                }
+                                return acc;
+                            });
+                            dataCopy = updatedAccounts;
+                            console.log(`Updated account ${dataCopy.ID} in accounts array`);
+                        } else {
+                            // If the account doesn't exist, add it to the array
+                            dataCopy = Array.isArray(allAccounts) ? [...allAccounts, dataCopy] : [dataCopy];
+                            console.log(`Added account ${dataCopy.ID} to accounts array`);
+                        }
                     } else {
                         console.error('[updateData] Invalid data received to update accounts');
                         // Get current accounts as backup
@@ -251,7 +326,10 @@ class database {
                     });
                 }
                 
-                console.log(`[updateData] Saving array of ${dataCopy.length} accounts`);
+                console.log(`[updateData] Saving array of ${Array.isArray(dataCopy) ? dataCopy.length : 0} accounts`);
+                if (Array.isArray(dataCopy) && dataCopy.length > 0) {
+                    console.log(`Saving accounts with IDs: ${dataCopy.map(acc => acc?.ID).join(', ')}`);
+                }
                 return await encryptedStorage.saveData(tableName, dataCopy);
             } else {
                 // For configClient, save the entire object
@@ -273,14 +351,84 @@ class database {
             key = Number(key);
             
             // For accounts, delete a specific account
-            if (tableName === 'accounts' && key !== 1) {
+            if (tableName === 'accounts') {
+                // CASO CRÍTICO: cuando tableName === 'accounts' y key === 1, podría ser:
+                // 1) Una cuenta con ID 1 legítima que se desea eliminar
+                // 2) Un intento de eliminar todas las cuentas (comportamiento por defecto de deleteData)
+                
+                // Verificamos si realmente existe una cuenta con ID 1 que estamos tratando de eliminar
+                const allAccounts = await encryptedStorage.getAllAccounts();
+                
+                // Si key === 1 pero NO hay un parámetro key explícito en la llamada,
+                // o si allAccounts es el objeto completo (no una cuenta específica),
+                // entonces es un intento de eliminar todas las cuentas
+                const accountWithId1Exists = Array.isArray(allAccounts) && 
+                    allAccounts.some(acc => 
+                        acc && (Number(acc.ID) === 1 || String(acc.ID) === '1')
+                    );
+                
+                // Si key === 1 pero no existe una cuenta con ID 1, bloqueamos la operación
+                if (key === 1 && !accountWithId1Exists) {
+                    console.error('PROTECCIÓN CRÍTICA: Se intentó eliminar todas las cuentas. Operación bloqueada.');
+                    return false;
+                }
+                
+                console.log(`Attempting to delete account with ID: ${key}`);
+                
+                if (!Array.isArray(allAccounts) || allAccounts.length === 0) {
+                    console.warn(`No accounts available to delete from`);
+                    return true; // Nothing to delete
+                }
+                
+                // Check if the account exists before deletion
+                const accountToDelete = allAccounts.find(acc => 
+                    acc && (Number(acc.ID) === key || String(acc.ID) === String(key))
+                );
+                
+                if (!accountToDelete) {
+                    console.warn(`Account with ID ${key} not found for deletion`);
+                    return false;
+                }
+                
+                console.log(`Found account for deletion: ${accountToDelete.name} with ID ${accountToDelete.ID}`);
+                
+                // Create a backup of all accounts before deletion
+                try {
+                    const accountsPath = await encryptedStorage.getSecurePath('accounts');
+                    if (fs.existsSync(accountsPath)) {
+                        await encryptedStorage.createSingleBackup(accountsPath, 'pre-delete-backup');
+                    }
+                } catch (error) {
+                    console.error('Error creating backup before deletion:', error);
+                    // Continue with deletion even if backup fails
+                }
+                
+                // Use the dedicated deleteAccount method in encryptedStorage
                 const deleted = await encryptedStorage.deleteAccount(key);
+                
                 if (!deleted) {
                     console.warn(`Failed to delete account with ID: ${key}`);
                 }
+                
+                // Verify that the account was actually deleted
+                const remainingAccounts = await encryptedStorage.getAllAccounts();
+                const stillExists = Array.isArray(remainingAccounts) && 
+                    remainingAccounts.some(acc => Number(acc.ID) === key || String(acc.ID) === String(key));
+                
+                if (stillExists) {
+                    console.error(`Account with ID ${key} still exists after deletion attempt!`);
+                    return false;
+                }
+                
+                // Verificar que todavía quedan cuentas y mostrar mensaje informativo
+                if (remainingAccounts.length === 0) {
+                    console.warn('La última cuenta fue eliminada. El archivo de cuentas está ahora vacío.');
+                }
+                
+                console.log(`Successfully deleted account with ID: ${key}, remaining accounts: ${remainingAccounts.length}`);
                 return deleted;
             } else {
-                // For configClient, delete the entire file
+                // Para configClient u otros archivos, eliminar el archivo completo
                 return await encryptedStorage.deleteData(tableName);
             }
         }).catch(error => {
@@ -360,21 +508,119 @@ class database {
             // Read config to get selected account ID
             const config = await this.readData('configClient');
             if (!config || !config.account_selected) {
+                console.log('No account is currently selected in config');
                 return null;
             }
             
-            // Get account with that ID
-            const account = await this.readData('accounts', config.account_selected);
+            const selectedId = config.account_selected;
+            console.log(`Looking for selected account with ID: ${selectedId}`);
             
-            // Ensure ID is a number for compatibility
-            if (account && account.ID !== undefined) {
-                account.ID = Number(account.ID);
+            // Get all accounts to find the selected one
+            const accounts = await encryptedStorage.getAllAccounts();
+            
+            if (!Array.isArray(accounts) || accounts.length === 0) {
+                console.warn('No accounts available to select from');
+                return null;
             }
             
-            return account;
+            // Try to find the account by ID using both number and string comparison
+            const account = accounts.find(acc => 
+                acc && (Number(acc.ID) === Number(selectedId) || String(acc.ID) === String(selectedId))
+            );
+            
+            // If account not found, log and return null
+            if (!account) {
+                console.warn(`Selected account with ID ${selectedId} not found`);
+                console.log(`Available accounts: ${accounts.map(a => `${a?.name}(${a?.ID})`).join(', ')}`);
+                return null;
+            }
+            
+            console.log(`Found selected account: ${account.name} with ID: ${account.ID}`);
+            
+            // Return a deep copy to avoid reference issues
+            const accountCopy = JSON.parse(JSON.stringify(account));
+            
+            // Ensure ID is a number for compatibility
+            if (accountCopy && accountCopy.ID !== undefined) {
+                accountCopy.ID = Number(accountCopy.ID);
+            }
+            
+            return accountCopy;
         } catch (error) {
             console.error('Error getting selected account:', error);
             return null;
+        }
+    }
+    
+    /**
+     * Sync account IDs to ensure consistency across operations
+     * @returns {Promise<boolean>} - true if successful
+     */
+    async syncAccountIds() {
+        try {
+            const accounts = await encryptedStorage.getAllAccounts();
+            
+            if (!Array.isArray(accounts) || accounts.length === 0) {
+                return true; // Nothing to sync
+            }
+            
+            console.log(`Syncing ${accounts.length} accounts`);
+            
+            // Check for duplicate IDs or invalid IDs
+            const seenIds = new Set();
+            let needsFix = false;
+            
+            const fixedAccounts = accounts.map((acc, index) => {
+                if (!acc) {
+                    console.warn(`Found null/undefined account at index ${index}, skipping`);
+                    needsFix = true;
+                    return null; // This will be filtered out later
+                }
+                
+                if (acc.ID === undefined) {
+                    // Account is missing ID, assign a new one
+                    console.warn(`Account ${acc.name || 'unknown'} is missing ID, assigning new one`);
+                    needsFix = true;
+                    const newId = index + 1;
+                    return { ...acc, ID: newId };
+                }
+                
+                const id = Number(acc.ID);
+                if (isNaN(id)) {
+                    // ID is not a number, assign a new one
+                    console.warn(`Account ${acc.name || 'unknown'} has invalid ID (${acc.ID}), assigning new one`);
+                    needsFix = true;
+                    const newId = index + 1;
+                    return { ...acc, ID: newId };
+                }
+                
+                if (seenIds.has(id)) {
+                    // Duplicate ID found, assign a new one
+                    needsFix = true;
+                    const newId = Math.max(...Array.from(seenIds)) + 1;
+                    console.warn(`Found duplicate ID ${id} for account ${acc.name}, reassigning to ${newId}`);
+                    seenIds.add(newId);
+                    return { ...acc, ID: newId };
+                }
+                
+                seenIds.add(id);
+                return { ...acc, ID: id };
+            }).filter(acc => acc !== null); // Remove any null accounts
+            
+            if (needsFix) {
+                console.log('Account IDs needed fixing, saving corrected accounts');
+                console.log(`Saving accounts with IDs: ${fixedAccounts.map(acc => acc?.ID).join(', ')}`);
+                await encryptedStorage.saveData('accounts', fixedAccounts);
+                
+                // Verify that the fix was applied
+                const verifiedAccounts = await encryptedStorage.getAllAccounts();
+                console.log(`Verified accounts after fix: ${verifiedAccounts.map(acc => acc?.ID).join(', ')}`);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Error syncing account IDs:', error);
+            return false;
         }
     }
     
