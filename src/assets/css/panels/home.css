@@ -2,11 +2,11 @@
     --icon-unselected: #707070;
     --box: #1A1A1A;
     --box-hover: #202020;
-    --box-button: #0078bd;
-    --box-button-hover: #053e8a;
-    --box-button-hover-2: #001f47;
-    --box-button-gradient-1: #00FFFF;
-    --box-button-gradient-2: #0096FF;
+    --box-button: #ff533a;
+    --box-button-hover: #f52019;
+    --box-button-hover-2: #f52019;
+    --box-button-gradient-1: #ff9835;
+    --box-button-gradient-2: #ff533a;
     --notification-red: rgba(255, 0, 0, 0.25);
     --notification-green: rgba(0, 255, 0, 0.25);
     --notification-blue: rgba(0, 0, 255, 0.25);
@@ -435,7 +435,7 @@
     align-items: center;
     position: relative;
     background: linear-gradient(135deg, var(--box-button) 0%, var(--box-button-hover) 100%);
-    box-shadow: 0px 3px 10px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 3px 10px rgba(245, 32, 25, 0.3);
     border-radius: 10px;
     color: #fff;
     cursor: pointer;
@@ -463,7 +463,7 @@
 
 .play-instance:hover {
     transform: translateY(-2px) scale(1.02);
-    box-shadow: 0px 6px 15px rgba(0, 120, 189, 0.5);
+    box-shadow: 0px 6px 15px rgba(245, 32, 25, 0.5);
 }
 
 .play-instance:hover:before {
@@ -472,7 +472,7 @@
 
 .play-instance:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 2px 5px rgba(245, 32, 25, 0.3);
 }
 
 .play-btn {
@@ -518,7 +518,7 @@
 
 .instance-select:active, .add-instance:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 2px 5px rgba(245, 32, 25, 0.3);
 }
 
 .grid-icon {
@@ -560,7 +560,7 @@
 
 .action-button:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 2px 5px rgba(245, 32, 25, 0.3);
 }
 
 .action-button:hover .settings-btn {
@@ -772,8 +772,8 @@
 }
 
 .instance-element:hover {
-    background: rgba(0, 120, 189, 0.2);
-    border: 1px solid rgba(0, 120, 189, 0.3);
+    background: rgba(245, 32, 25, 0.2);
+    border: 1px solid rgba(245, 32, 25, 0.3);
 }
 
 .instance-image {
@@ -802,8 +802,8 @@
 }
 
 .active-instance {
-    background: rgba(0, 120, 189, 0.4);
-    border: 1px solid rgba(0, 120, 189, 0.3);
+    background: rgba(245, 32, 25, 0.4);
+    border: 1px solid rgba(245, 32, 25, 0.3);
 }
 
 .close-popup {
@@ -1089,7 +1089,7 @@
 
 .add-instance-input:focus {
     border-color: var(--box-button);
-    box-shadow: 0 0 8px rgba(0, 120, 189, 0.5);
+    box-shadow: 0 0 8px rgba(245, 32, 25, 0.5);
 }
 
 .add-instance-input::placeholder {
@@ -1122,7 +1122,7 @@
 
 .add-instance-confirm:hover {
     transform: translateY(-2px);
-    box-shadow: 0px 4px 10px rgba(0, 120, 189, 0.4);
+    box-shadow: 0px 4px 10px rgba(245, 32, 25, 0.4);
 }
 
 .add-instance-confirm:active {

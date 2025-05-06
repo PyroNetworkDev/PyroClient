@@ -791,7 +791,7 @@ body:has(.patch-toolkit:not(:visible)) .scroll-to-bottom {
 }
 
 .active-step {
-  background-color: rgba(33, 137, 255, 0.582);
+  background-color: #f52019;
 }
 
 .setup-content {
@@ -1304,7 +1304,7 @@ body.performance-mode .settings-content {
   transition: background-color 0.2s;
   min-width: 100px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  background-color: rgba(0, 120, 215, 0.8);
+  background-color: #f52019;
   background-image: linear-gradient(to right, rgba(0, 120, 215, 0.9), rgba(0, 80, 170, 0.9));
 }
 
@@ -1318,7 +1318,7 @@ body.performance-mode .settings-content {
 .setup-next-btn:hover,
 .setup-finish-btn:hover {
   background-image: linear-gradient(to right, rgba(0, 100, 200, 1), rgba(0, 70, 150, 1));
-  background-color: rgba(0, 100, 200, 1);
+  background-color: #f52019;
 }
 
 .setup-prev-btn:hover {
@@ -1360,7 +1360,7 @@ body.performance-mode .settings-content {
 
 .setup-launcher-behavior-option.selected {
   background-color: rgba(0, 120, 215, 0.15);
-  border: 1px solid rgba(0, 120, 215, 0.7);
+  border: 1px solid rgba(245, 32, 25, 0.7);
 }
 
 .setup-launcher-behavior-radio {
@@ -1428,7 +1428,7 @@ body.performance-mode .settings-content {
 
 .setup-launcher-behavior-option.selected {
   background-color: rgba(0, 120, 215, 0.15);
-  border: 1px solid rgba(0, 120, 215, 0.7);
+  border: 1px solid rgba(245, 32, 25, 0.7);
 }
 
 .setup-launcher-behavior-radio {
@@ -1512,8 +1512,8 @@ body.performance-mode .settings-content {
 .spinner {
   width: 70.4px;
   height: 70.4px;
-  --clr: rgba(0, 120, 215, 1);
-  --clr-alpha: rgb(0, 120, 215,.1);
+  --clr: rgb(215, 0, 0);
+  --clr-alpha: rgba(215, 0, 0, 0.1);
   animation: spinner 1.6s infinite ease;
   transform-style: preserve-3d;
   margin-bottom: 3rem;

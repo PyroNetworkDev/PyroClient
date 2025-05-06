@@ -1,4 +1,4 @@
-* {
+/* * {
     --icon-unselected: #707070;
     --box: #1A1A1A;
     --box-hover: #202020;
@@ -7,7 +7,7 @@
     --box-button-hover-2: #001f47;
     --box-button-gradient-1: #00FFFF;
     --box-button-gradient-2: #0096FF;
-}
+} */
 
 .login .container {
     display: flex;

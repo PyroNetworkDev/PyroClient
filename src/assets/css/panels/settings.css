@@ -49,12 +49,12 @@
 .nav-settings-btn:hover {
     background-color: var(--box-button-hover);
     transform: translateY(-2px) scale(1.02);
-    box-shadow: 0px 6px 15px rgba(0, 120, 189, 0.5);
+    box-shadow: 0px 6px 15px rgba(245, 32, 25, 0.5);
 }
 
 .nav-settings-btn:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 2px 5px rgba(245, 32, 25, 0.3);
 }
 
 .active-settings-BTN {
@@ -673,7 +673,7 @@ input:disabled::placeholder {
 .input-resolution:focus, .input-max-files:focus {
     outline: none;
     border-color: var(--box-button);
-    box-shadow: 0 0 8px rgba(0, 120, 189, 0.5);
+    box-shadow: 0 0 8px rgba(245, 32, 25, 0.5);
 }
 
 .size-cross {
@@ -738,7 +738,7 @@ input:disabled::placeholder {
 
 .reset-config-btn:hover {
     transform: translateY(-3px);
-    box-shadow: 0 6px 15px rgba(0, 120, 189, 0.5);
+    box-shadow: 0 6px 15px rgba(245, 32, 25, 0.5);
 }
 
 .reset-config-btn:hover::before {
