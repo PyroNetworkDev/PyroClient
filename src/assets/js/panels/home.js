@@ -63,7 +63,7 @@ class Home {
         this.startButtonManager();
         await this.loadRecentInstances();
         document.querySelector('.action-button:nth-child(3)').addEventListener('click', e => discordAccount() && changePanel('settings'));
-        document.querySelector('.player-options').addEventListener('click', e => clickHead());
+        document.querySelector('.player-options').addEventListener('click', e => changePanel('skins'));
         this.addInstanceButton();
         this.addPlayerTooltip();
         this.addInterfaceTooltips();
@@ -196,7 +196,7 @@ class Home {
         let res = await config.GetConfig();
         if (res.modsBeta || dev) {
             document.querySelector('.action-button:nth-child(2)').style.display = 'flex';
-            document.querySelector('.action-button:nth-child(2)').addEventListener('click', e => changePanel('mods'))
+            document.querySelector('.action-button:nth-child(2)').addEventListener('click', e => changePanel('skins'))
         } else {
             document.querySelector('.action-button:nth-child(2)').style.display = 'none';
         }

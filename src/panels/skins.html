@@ -1,0 +1,55 @@
+<div class="skins-container skins">
+    <div class="skins-content">
+        <div class="skins-top">
+            <div class="back-btn">
+                <i class="fas fa-arrow-left"></i>
+            </div>
+            <div class="skins-title">Personaliza tu skin</div>
+        </div>
+
+        <div class="skins-main-content">
+            <div class="skins-library-container">
+                <div class="skin-section-header">
+                    <h3>Biblioteca de skins</h3>
+                    <div class="skins-search">
+                        <input type="text" placeholder="Buscar skin..." class="skin-search-input">
+                        <div class="skin-search-btn">
+                            <i class="fas fa-search"></i>
+                        </div>
+                    </div>
+                </div>
+                <div class="skins-list content-scroll">
+                    <!-- Las skins se cargarán aquí dinámicamente -->
+                </div>
+                <input type="file" id="skin-file-input" accept=".png" style="display: none;">
+            </div>
+            
+            <div class="skin-preview-container">
+                <div class="skin-section-header">
+                    <h3>Vista previa</h3>
+                </div>
+                <div class="skin-view-wrapper">
+                    <div class="skin-view-container">
+                        <canvas id="skin-viewer-canvas"></canvas>
+                    </div>
+                    <div class="skin-controls-container">
+                        <div class="skin-view-controls">
+                            <div class="skin-pose-btn" data-pose="idle">Estático</div>
+                            <div class="skin-pose-btn" data-pose="walk">Caminar</div>
+                            <div class="skin-pose-btn" data-pose="run">Correr</div>
+                        </div>
+                        
+                        <div class="skin-info">
+                            <h4 class="current-skin-name">Selecciona una skin</h4>
+                            <div class="current-skin-details"></div>
+                            <div class="apply-skin-btn">
+                                <i class="fas fa-check"></i>
+                                Aplicar skin
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

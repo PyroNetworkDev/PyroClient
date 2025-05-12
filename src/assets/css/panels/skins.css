@@ -1,0 +1,823 @@
+.skins-container {
+    width: 100%;
+    height: 100%;
+    color: var(--color);
+    display: flex;
+    position: relative;
+}
+
+/* Sidebar similar a home */
+.skins .sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    width: 6rem;
+    height: 100%;
+    position: fixed;
+    left: 0;
+    top: 0;
+    background-color: var(--sidebar);
+    border-right: 1px solid var(--sidebar-border);
+    transition: all 0.2s;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 0 10px 10px 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(5px);
+    gap: 1rem;
+    z-index: 5;
+}
+
+.skins .player-options {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 15px;
+    height: 3rem;
+    margin: 1.5rem 0;
+}
+
+.skins .player-options:active {
+    transform: translateY(1px) scale(0.98);
+}
+
+.skins .head-frame {
+    position: relative;
+    overflow: hidden;
+    height: 3.3rem;
+    width: 3.3rem;
+    border-radius: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-right: 0.5rem;
+}
+
+.skins .player-head {
+    background: url('../../images/default/steve.png'), no-repeat;
+    background-size: cover;
+    image-rendering: pixelated;
+    transition: var(--transition);
+    height: 3rem;
+    width: 3rem;
+    pointer-events: none;
+    border-radius: 15px;
+    margin: 0;
+}
+
+.skins .button-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.skins .action-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 15px;
+    color: #fff;
+    font-size: 1rem;
+    height: 3.1rem;
+    width: 3.1rem;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.05);
+    transition: all 0.2s, border 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(15.5px);
+    -webkit-backdrop-filter: blur(15.5px);
+    margin-bottom: 0.1rem;
+}
+
+.skins .action-button:hover {
+    background: var(--box-button-hover-2);
+    transform: scale(1.05);
+}
+
+.skins .action-button:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+}
+
+/* Contenido principal */
+.skins-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.skins-top {
+    display: flex;
+    align-items: center;
+    height: 6rem;
+    padding: 0 2rem;
+    position: relative;
+}
+
+.back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 3rem;
+    width: 3rem;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    margin-right: 2rem;
+    position: absolute;
+    left: 2rem;
+    z-index: 2;
+}
+
+.back-btn:hover {
+    background: var(--box-button-hover-2);
+    transform: scale(1.05);
+}
+
+.back-btn:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+}
+
+.skins-title {
+    font-size: 2rem;
+    color: #fff;
+    width: 100%;
+    text-align: center;
+    padding-left: 3rem;
+}
+
+.skins-main-content {
+    display: flex;
+    height: calc(100% - 6rem);
+    padding: 0 2rem 2rem;
+    gap: 2rem;
+}
+
+/* Biblioteca de skins */
+.skins-library-container {
+    width: 60%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.skin-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.skin-section-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #fff;
+}
+
+.skins-search {
+    display: flex;
+    width: 60%;
+}
+
+.skin-search-input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 10px 0 0 10px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-right: none;
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font-size: 0.9rem;
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.skin-search-btn,
+.skin-clear-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 3rem;
+    border-radius: 0 10px 10px 0;
+    background: var(--box-button);
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+}
+
+.skin-search-btn:hover,
+.skin-clear-btn:hover {
+    background: var(--box-button-hover);
+}
+
+.skin-clear-btn {
+    background: rgba(220, 50, 50, 0.8); /* Rojo más visible */
+}
+
+.skin-clear-btn:hover {
+    background: rgba(255, 60, 60, 1); /* Rojo más intenso al pasar el mouse */
+}
+
+.skins-list {
+    flex: 1;
+    overflow-y: auto;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-column-gap: 1.2rem;
+    grid-row-gap: 1.2rem; /* Aumentamos el espaciado vertical para evitar solapamientos */
+    grid-auto-rows: min-content; /* Asegura que cada fila tenga la altura correcta */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Estilizar scrollbar */
+.skins-list::-webkit-scrollbar {
+    width: 12px;
+}
+
+.skins-list::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 10px 0;
+}
+
+.skins-list::-webkit-scrollbar-thumb {
+    background-color: white;
+    border-radius: 20px;
+    border: 4px solid rgba(0, 0, 0, 0);
+    background-clip: padding-box;
+    min-height: 50px;
+}
+
+.skins-list::-webkit-scrollbar-thumb:hover {
+    background-color: #e0e0e0;
+}
+
+/* Elementos cuadrados para skins */
+.skin-item {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 10px;
+    min-height: 140px; /* Altura mínima fija para mantener consistencia */
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.8rem; /* Revertido al valor original */
+    box-sizing: border-box; /* Asegurar que padding no afecte dimensiones */
+    overflow: hidden;
+}
+
+.skin-item:hover {
+    transform: translateY(-5px);
+    background: rgba(0, 120, 189, 0.2);
+    border: 1px solid rgba(0, 120, 189, 0.3);
+}
+
+.skin-item:active {
+    transform: translateY(1px) scale(0.95);
+}
+
+.skin-item.selected {
+    background: rgba(0, 120, 189, 0.4);
+    border: 1px solid rgba(0, 120, 189, 0.3);
+}
+
+.skin-item.user-current-skin {
+    border: 2px solid var(--box-button);
+    position: relative;
+}
+
+/* Botón de subir skin integrado como un elemento más */
+.upload-skin-btn {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 10px;
+    height: auto; /* Permitir altura automática */
+    min-height: 140px; /* Altura mínima fija para mantener consistencia */
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    color: #fff;
+    padding: 0.8rem;
+    box-sizing: border-box; /* Asegurar que padding no afecte dimensiones */
+}
+
+.upload-skin-btn:hover {
+    transform: translateY(-5px);
+    background: rgba(0, 120, 189, 0.2);
+    border: 1px solid rgba(0, 120, 189, 0.3);
+}
+
+.upload-skin-btn:active {
+    transform: translateY(1px) scale(0.98);
+}
+
+.upload-skin-btn i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.upload-skin-btn span {
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+/* Panel de vista previa - contenedor principal */
+.skin-preview-container {
+    position: relative;
+    width: 40%;
+    display: flex;
+    flex-direction: column; /* Asegura que los elementos se apilen verticalmente */
+    gap: 1rem;
+}
+
+/* Contenedor de miniaturas de skin */
+.skin-thumbnail-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.skin-thumbnail {
+    width: 64px;
+    height: 64px;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 6px;
+    image-rendering: pixelated;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.skin-delete-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 22px;
+    height: 22px;
+    background: rgba(255, 0, 0, 0.8);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+    z-index: 2;
+}
+
+.skin-item:hover .skin-delete-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.skin-delete-btn:hover {
+    background: rgba(220, 0, 0, 1);
+    transform: scale(1.1);
+}
+
+.skin-name {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.skin-model-indicator {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-left: 8px;
+    text-transform: uppercase;
+    vertical-align: middle;
+}
+
+.skin-model-classic {
+    background-color: rgba(0, 120, 215, 0.7);
+    color: white;
+}
+
+.skin-model-slim {
+    background-color: rgba(198, 60, 212, 0.7);
+    color: white;
+}
+
+.empty-skins-message {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem;
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Vista previa reformateada */
+.skin-view-wrapper {
+    display: flex;
+    flex: 1;
+    gap: 1rem;
+}
+
+.skin-view-container {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.skin-controls-container {
+    width: 40%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+#skin-viewer-canvas {
+    max-height: 350px;
+    max-width: 100%;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.skin-view-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.skin-pose-btn {
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    text-align: center;
+}
+
+.skin-pose-btn:hover {
+    background: rgba(0, 120, 189, 0.2);
+    border: 1px solid rgba(0, 120, 189, 0.3);
+    transform: translateY(-2px);
+}
+
+.skin-pose-btn.active {
+    background: rgba(0, 120, 189, 0.4);
+    border: 1px solid rgba(0, 120, 189, 0.3);
+}
+
+.skin-info {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1.2rem;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.current-skin-name {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+    color: #fff;
+}
+
+.current-skin-details {
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    flex: 1;
+}
+
+.apply-skin-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, var(--box-button) 0%, var(--box-button-hover) 100%);
+    color: #fff;
+    padding: 0.8rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0px 3px 10px rgba(0, 120, 189, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    font-weight: 600;
+}
+
+.apply-skin-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0px 6px 15px rgba(0, 120, 189, 0.5);
+}
+
+.apply-skin-btn:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+}
+
+.apply-skin-btn[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: rgba(80, 80, 80, 0.7);
+}
+
+/* Estilos para el proceso de aplicación de skin */
+.skin-apply-progress {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    width: 90%;
+}
+
+.progress-step {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    opacity: 0.6;
+}
+
+.progress-step::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    display: inline-block;
+    transition: all 0.3s;
+}
+
+.progress-step.active {
+    background: rgba(0, 120, 189, 0.2);
+    border: 1px solid rgba(0, 120, 189, 0.3);
+    opacity: 1;
+}
+
+.progress-step.active::before {
+    border-color: var(--box-button);
+    background: var(--box-button);
+    animation: pulseSkin 1.5s infinite;
+}
+
+.progress-step.completed {
+    opacity: 0.8;
+}
+
+.progress-step.completed::before {
+    border-color: #4CAF50;
+    background-color: #4CAF50;
+    content: "✓";
+    color: white;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes pulseSkin {
+    0% { box-shadow: 0 0 0 0 rgba(0, 120, 189, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(0, 120, 189, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 120, 189, 0); }
+}
+
+/* Estilos mejorados para el popup de nombre de skin */
+.skin-name-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.skin-name-modal {
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    width: 400px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    animation: modalAppear 0.3s ease-out forwards;
+}
+
+@keyframes modalAppear {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.skin-name-modal-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+}
+
+.skin-name-modal-header h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.5rem;
+}
+
+.skin-name-modal-body {
+    padding: 20px;
+}
+
+.skin-name-modal-body p {
+    color: #fff;
+    margin-bottom: 15px;
+}
+
+.skin-name-input {
+    width: 100%;
+    padding: 12px 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.skin-name-input:focus {
+    border-color: var(--box-button);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 120, 215, 0.3);
+}
+
+.skin-name-modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+}
+
+.skin-name-cancel-btn, .skin-name-confirm-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.skin-name-cancel-btn {
+    background-color: rgba(60, 60, 60, 0.9);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.skin-name-confirm-btn {
+    background: linear-gradient(135deg, var(--box-button) 0%, var(--box-button-hover) 100%);
+    color: white;
+}
+
+.skin-name-cancel-btn:hover {
+    background-color: rgba(80, 80, 80, 0.9);
+    transform: translateY(-2px);
+}
+
+.skin-name-confirm-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0px 4px 8px rgba(0, 120, 189, 0.4);
+}
+
+.skin-name-cancel-btn:active,
+.skin-name-confirm-btn:active {
+    transform: translateY(1px);
+}
+
+.shake {
+    animation: shake 0.5s;
+}
+
+@keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    50% { transform: translateX(5px); }
+    75% { transform: translateX(-5px); }
+    100% { transform: translateX(0); }
+}
+
+/* Clase para ocultar elementos en búsqueda */
+.hidden-item {
+    display: none !important;
+}
+
+/* Mensaje de no resultados */
+#no-search-results {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 2rem;
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .skins-main-content {
+        flex-direction: column;
+    }
+    
+    .skins-library-container, .skin-preview-container {
+        width: 100%;
+    }
+    
+    .skin-view-wrapper {
+        flex-direction: column;
+    }
+    
+    .skin-controls-container {
+        width: 100%;
+        flex-direction: row;
+    }
+    
+    .skin-view-controls, .skin-info {
+        width: 50%;
+    }
+}
+
+@media (max-width: 768px) {
+    .skin-controls-container {
+        flex-direction: column;
+    }
+    
+    .skin-view-controls, .skin-info {
+        width: 100%;
+    }
+    
+    .skins-list {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+}

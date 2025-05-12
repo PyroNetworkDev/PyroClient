@@ -470,16 +470,12 @@ class Login {
             // Update selected account in config
             configClient.account_selected = account.ID;
             await this.db.updateData('configClient', configClient);
-            
-            // Update UI and navigate to home
+              // Update UI and navigate to home
             await addAccount(account);
             await accountSelect(account);
             
-            if (account.meta?.type === 'AZauth') {
-                clickableHead(true);
-            } else {
-                clickableHead(false);
-            }
+            // Siempre establecer la cabeza como clickeable
+            await clickableHead();
             
             await setUsername(account.name);
             await loginMSG();

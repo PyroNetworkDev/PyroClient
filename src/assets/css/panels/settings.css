@@ -334,7 +334,7 @@ input:disabled::placeholder {
 .profile-image {
     width: 70px;
     height: 70px;
-    background: url(../../images/default/setve.png);
+    background: url(../../images/default/steve.png);
     background-size: cover;
     border-radius: 15px;
     pointer-events: none;

@@ -4,6 +4,7 @@
 @import 'panels/home.css';
 @import 'panels/settings.css';
 @import 'panels/mods.css';
+@import 'panels/skins.css';
 
 body {
     margin: 0;

@@ -34,6 +34,7 @@
  *                                                                             *
  ******************************************************************************/
 
+
 .status-server {
     display: flex;
     justify-content: space-between;
@@ -118,6 +119,7 @@
  * news server                                                                 *
  *                                                                             *
  ******************************************************************************/
+
 
 .storebutton {
     width:98%;
@@ -322,6 +324,7 @@
  *                                                                             *
  ******************************************************************************/
 
+
 .social-tab {
     position: fixed;
     display: flex;
@@ -370,6 +373,7 @@
  *                                                                             *
  ******************************************************************************/
 
+
 .sidebar {
     display: flex;
     flex-direction: column;
@@ -400,8 +404,13 @@
     margin: 1.5rem 0;
 }
 
+/* Añadir efecto al hacer clic en la cabeza del jugador */
+.player-options:active {
+    transform: translateY(1px) scale(0.98);
+}
+
 .player-head {
-    background: url('../../images/default/setve.png'), no-repeat;
+    background: url('../../images/default/steve.png'), no-repeat;
     background-size: cover;
     image-rendering: pixelated;
     transition: var(--transition);
@@ -980,6 +989,12 @@
 
 .recent-instance-button:hover {
     transform: scale(1.05);
+}
+
+/* Añadir efecto al hacer clic en los botones de instancias recientes */
+.recent-instance-button:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
 }
 
 .recent-instance-button.selected-instance {

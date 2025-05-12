@@ -21,7 +21,6 @@ import cleanupManager from './utils/cleanup-manager.js';
 let username = '';
 let DiscordUsername = '';
 let DiscordPFP = '';
-let headButton = false;
 let musicAudio = new Audio();
 let musicSource = '';
 let isMusicPlaying = false;
@@ -1001,7 +1000,7 @@ async function accountSelect(data) {
         let img = new Image();
         img.onerror = function() {
             console.warn("Error al cargar la imagen de la cabeza del jugador, se cargará la imagen por defecto");
-            document.querySelector(".player-head").style.backgroundImage = 'url("assets/images/default/setve.png")';
+            document.querySelector(".player-head").style.backgroundImage = 'url("assets/images/default/steve.png")';
         }
         img.onload = function() {
             document.querySelector(".player-head").style.backgroundImage = `url(${img.src})`;
@@ -1010,6 +1009,9 @@ async function accountSelect(data) {
     }
     setUsername(data.name);
     /* if (data.name) document.querySelector('.player-name').innerHTML = data.name; */
+    
+    // Update clickable head function with the full account data
+    clickableHead(data);
 }
 
 
@@ -1018,30 +1020,23 @@ async function headplayer(skinBase64) {
     document.querySelector(".player-head").style.backgroundImage = `url(${skin})`;
 }
 
-async function clickableHead(condition) {
+async function clickableHead(account) {
     let playerHead = document.querySelector('.player-options');
     let playerHeadFrame = document.querySelector('.head-frame');
-    if (condition) {
-        playerHead.style.cursor = 'pointer';
-        playerHead.classList.add('hoverenabled');
-        playerHeadFrame.classList.add('border-animation');
-        headButton = true;
-    } else {
-        playerHead.style.cursor = 'default';
-        playerHead.classList.remove('hoverenabled');
-        playerHeadFrame.classList.remove('border-animation');
-        headButton = false;
-    }
+    
+    // Siempre habilitar el clic en la cabeza del jugador
+    playerHead.style.cursor = 'pointer';
+    playerHead.classList.add('hoverenabled');
+    playerHeadFrame.classList.add('border-animation');
 }
 
 async function getClickeableHead() {
-    return headButton;
+    return true; // Siempre retornar true
 }
 
 async function clickHead() {
-    if (headButton) {
-        ipcRenderer.send('create-skin-window');
-    }
+    // Siempre cambiar al panel de skins cuando se hace clic
+    changePanel("skins");
 }
 
 async function setStatus(opt) {
