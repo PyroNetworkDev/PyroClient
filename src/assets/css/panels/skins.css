@@ -99,7 +99,7 @@
 
 .skins .action-button:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 2px 5px rgba(255, 0, 0, 0.3);
 }
 
 /* Contenido principal */
@@ -143,7 +143,7 @@
 
 .back-btn:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 2px 5px rgba(255, 0, 0, 0.3);
 }
 
 .skins-title {
@@ -287,8 +287,8 @@
 
 .skin-item:hover {
     transform: translateY(-5px);
-    background: rgba(0, 120, 189, 0.2);
-    border: 1px solid rgba(0, 120, 189, 0.3);
+    background: rgba(255, 0, 0, 0.2);
+    border: 1px solid rgba(255, 0, 0, 0.3);
 }
 
 .skin-item:active {
@@ -296,8 +296,8 @@
 }
 
 .skin-item.selected {
-    background: rgba(0, 120, 189, 0.4);
-    border: 1px solid rgba(0, 120, 189, 0.3);
+    background: rgba(255, 0, 0, 0.4);
+    border: 1px solid rgba(255, 0, 0, 0.3);
 }
 
 .skin-item.user-current-skin {
@@ -328,8 +328,8 @@
 
 .upload-skin-btn:hover {
     transform: translateY(-5px);
-    background: rgba(0, 120, 189, 0.2);
-    border: 1px solid rgba(0, 120, 189, 0.3);
+    background: rgba(255, 0, 0, 0.2);
+    border: 1px solid rgba(255, 0, 0, 0.3);
 }
 
 .upload-skin-btn:active {
@@ -510,14 +510,14 @@
 }
 
 .skin-pose-btn:hover {
-    background: rgba(0, 120, 189, 0.2);
-    border: 1px solid rgba(0, 120, 189, 0.3);
+    background: rgba(255, 0, 0, 0.2);
+    border: 1px solid rgba(255, 0, 0, 0.3);
     transform: translateY(-2px);
 }
 
 .skin-pose-btn.active {
-    background: rgba(0, 120, 189, 0.4);
-    border: 1px solid rgba(0, 120, 189, 0.3);
+    background: rgba(255, 0, 0, 0.4);
+    border: 1px solid rgba(255, 0, 0, 0.3);
 }
 
 .skin-info {
@@ -557,19 +557,19 @@
     border-radius: 10px;
     cursor: pointer;
     transition: all 0.3s;
-    box-shadow: 0px 3px 10px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 3px 10px rgba(255, 0, 0, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.18);
     font-weight: 600;
 }
 
 .apply-skin-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0px 6px 15px rgba(0, 120, 189, 0.5);
+    box-shadow: 0px 6px 15px rgba(255, 0, 0, 0.5);
 }
 
 .apply-skin-btn:active:not(:disabled) {
     transform: translateY(1px);
-    box-shadow: 0px 2px 5px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 2px 5px rgba(255, 0, 0, 0.3);
 }
 
 .apply-skin-btn[disabled] {
@@ -610,8 +610,8 @@
 }
 
 .progress-step.active {
-    background: rgba(0, 120, 189, 0.2);
-    border: 1px solid rgba(0, 120, 189, 0.3);
+    background: rgba(255, 0, 0, 0.2);
+    border: 1px solid rgba(255, 0, 0, 0.3);
     opacity: 1;
 }
 
@@ -637,7 +637,7 @@
 }
 
 @keyframes pulseSkin {
-    0% { box-shadow: 0 0 0 0 rgba(0, 120, 189, 0.7); }
+    0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
     70% { box-shadow: 0 0 0 6px rgba(0, 120, 189, 0); }
     100% { box-shadow: 0 0 0 0 rgba(0, 120, 189, 0); }
 }
@@ -708,7 +708,7 @@
 .skin-name-input:focus {
     border-color: var(--box-button);
     outline: none;
-    box-shadow: 0 0 0 2px rgba(0, 120, 215, 0.3);
+    box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.3);
 }
 
 .skin-name-modal-footer {
@@ -747,7 +747,7 @@
 
 .skin-name-confirm-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0px 4px 8px rgba(0, 120, 189, 0.4);
+    box-shadow: 0px 4px 8px rgba(255, 0, 0, 0.4);
 }
 
 .skin-name-cancel-btn:active,
