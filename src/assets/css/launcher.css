@@ -619,7 +619,6 @@ input::-webkit-inner-spin-button {
 }
 
 .scroll-to-bottom {
-  display: none;
   position: absolute;
   bottom: 150px; /* Posición predeterminada cuando patch-toolkit está visible */
   right: 10px;
@@ -636,18 +635,46 @@ input::-webkit-inner-spin-button {
   z-index: 10;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   opacity: 0;
+  visibility: hidden;
+  transition: all 0.5s;
+  pointer-events: none;
+}
+
+.scroll-to-bottom.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.scroll-to-bottom:hover {
+  background-color: var(--box-button-hover);
   transition: all 0.5s;
 }
 
+.scroll-to-bottom i {
+  font-size: 24px; /* Increased font size for the arrow icon */
+  display: block;
+  margin: auto;
+}
+
+/* Mejorar detectores de cuando patch-toolkit está oculto, usar múltiples selectores para diferentes casos */
 /* Cuando patch-toolkit no está visible, scroll-to-bottom toma su posición */
 .patch-toolkit[style*="display: none"] ~ .scroll-to-bottom,
-.patch-toolkit:not(:visible) ~ .scroll-to-bottom {
+.patch-toolkit:not(:visible) ~ .scroll-to-bottom,
+.patch-toolkit[hidden] ~ .scroll-to-bottom {
   bottom: 80px;
 }
 
-/* Regla alternativa para cuando la visibilidad se controla por JS */
+/* Reglas alternativas para cuando la visibilidad se controla por JS */
 body:has(.patch-toolkit[style*="display: none"]) .scroll-to-bottom,
-body:has(.patch-toolkit:not(:visible)) .scroll-to-bottom {
+body:has(.patch-toolkit:not(:visible)) .scroll-to-bottom,
+body:has(.patch-toolkit[hidden]) .scroll-to-bottom {
+  bottom: 80px;
+}
+
+/* Nueva regla específica para cuando patch-toolkit está oculto mediante opacity o visibility */
+.patch-toolkit[style*="opacity: 0"] ~ .scroll-to-bottom,
+.patch-toolkit[style*="visibility: hidden"] ~ .scroll-to-bottom {
   bottom: 80px;
 }
 
@@ -1666,5 +1693,52 @@ body.performance-mode .loading-overlay {
   transition: background-color .2s, border .2s;
   border-radius: 18px;
   cursor: pointer;
+}
+
+.tooltip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 0.5rem;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    z-index: 1000;
+    white-space: nowrap;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transition: opacity 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.18); 
+    backdrop-filter: blur(15.5px);
+    -webkit-backdrop-filter: blur(15.5px);
+    --tooltip-arrow-side: left;
+}
+
+/* Flecha por defecto (izquierda) */
+.tooltip::after {
+    content: '';
+    position: absolute;
+    left: -10px;
+    top: 50%;
+    transform: translateY(-50%) rotate(180deg);
+    border-width: 5px;
+    border-style: solid;
+    border-color: transparent transparent transparent rgba(0, 0, 0, 0.8);
+}
+
+/* Flecha a la derecha para los tooltips de la consola */
+.tooltip[style*="--tooltip-arrow-side: right"]::after,
+.tooltip.tooltip-right::after {
+    left: auto;
+    right: -10px;
+    transform: translateY(-50%);
+}
+
+/* Estilos adicionales para tooltips en botones de consola */
+.log .console-hwid-container .tooltip,
+.log .scroll-to-bottom .tooltip,
+.log .patch-toolkit .tooltip,
+.log .report-issue .tooltip {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
 }
 

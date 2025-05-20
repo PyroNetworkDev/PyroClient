@@ -41,7 +41,11 @@ class Config {
     GetConfig() {
         return new Promise((resolve, reject) => {
             let configUrl = `${config}?checksum=${Launcherkey}`;
-            nodeFetch(configUrl).then(async config => {
+            nodeFetch(configUrl, {
+                headers: {
+                    'User-Agent': 'MiguelkiNetworkMCLauncher'
+                }
+            }).then(async config => {
                 if (config.status === 200) return resolve(config.json());
                 else return reject({ error: { code: config.statusText, message: 'server not accessible' } });
             }).catch(error => {
@@ -53,7 +57,12 @@ class Config {
     async getInstanceList() {
         try {
             let urlInstance = `${url}/files?checksum=${Launcherkey}&id=${hwid}`;
-            let response = await nodeFetch(urlInstance);
+            let response = await nodeFetch(urlInstance, {
+                headers: {
+                    'User-Agent': 'MiguelkiNetworkMCLauncher'
+                }
+            }
+            );
             
             // Check if the response is OK
             if (!response.ok) {

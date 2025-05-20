@@ -410,7 +410,7 @@ class Skins {
             // (cargado desde el script en el HTML)
             this.skinViewer = new skinview3d.SkinViewer({
                 canvas: canvas,
-                width: 300,
+                width: 280,
                 height: 400,
                 skin: null
             });

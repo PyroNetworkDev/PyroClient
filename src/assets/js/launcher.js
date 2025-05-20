@@ -55,8 +55,7 @@ let dev = process.env.NODE_ENV === "dev";
 
 class Launcher {
   async init() {
-    if (dev) this.initLog();
-    else this.initWindow();
+    this.initWindow();
 
     console.log("Iniciando Launcher...");
     
@@ -1675,14 +1674,15 @@ class Launcher {
     });
 
     logContent.addEventListener("scroll", () => {
-      if (logContent.scrollTop + logContent.clientHeight < logContent.scrollHeight) {
+      // Calculamos si estamos cerca del final del scroll
+      const isNearBottom = logContent.scrollTop + logContent.clientHeight >= logContent.scrollHeight - 50;
+      
+      if (!isNearBottom) {
         autoScroll = false;
         scrollToBottomButton.classList.add("show");
-        scrollToBottomButton.style.pointerEvents = "auto";
       } else {
         autoScroll = true;
         scrollToBottomButton.classList.remove("show");
-        scrollToBottomButton.style.pointerEvents = "none";
       }
     });
 
@@ -1693,27 +1693,91 @@ class Launcher {
         behavior: "smooth"
       });
       scrollToBottomButton.classList.remove("show");
-      scrollToBottomButton.style.pointerEvents = "none";
     });
 
+    // Inicialización del scrollToBottomButton para asegurar que tenga los estilos correctos
+    scrollToBottomButton.innerHTML = '<i class="fa-solid fa-arrow-down"></i>';
+    scrollToBottomButton.querySelector('i').style.fontSize = '24px';
+    
+    // Verificar si hay scroll al inicio y mostrar el botón si es necesario
+    setTimeout(() => {
+      if (logContent.scrollHeight > logContent.clientHeight) {
+        const isNearBottom = logContent.scrollTop + logContent.clientHeight >= logContent.scrollHeight - 50;
+        if (!isNearBottom) {
+          scrollToBottomButton.classList.add("show");
+        }
+      }
+    }, 500);
+
+    // Obtener referencias a botones y preparar tooltips
     let patchToolkit = document.querySelector(".patch-toolkit");
+    let reportIssueButton = document.querySelector(".report-issue");
+    let copyButton = document.querySelector(".copy-console-hwid");
+
+    // Función para añadir tooltips
+    const addTooltip = (element, text) => {
+      let tooltip = null;
+      
+      element.addEventListener('mouseenter', () => {
+        tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        tooltip.innerText = text;
+        document.body.appendChild(tooltip);
+
+        const rect = element.getBoundingClientRect();
+        tooltip.style.left = rect.left - tooltip.offsetWidth - 10 + 'px';
+        tooltip.style.top = rect.top + (rect.height / 2) - (tooltip.offsetHeight / 2) + 'px';
+        
+        // Cambiar flecha al lado derecho
+        tooltip.style.setProperty('--tooltip-arrow-side', 'right');
+        
+        // Hacer que el tooltip sea visible
+        setTimeout(() => {
+          tooltip.style.opacity = '1';
+        }, 10);
+      });
+      
+      element.addEventListener('mouseleave', () => {
+        if (tooltip) {
+          tooltip.style.opacity = '0';
+          setTimeout(() => {
+            // Add null check before accessing parentNode
+            if (tooltip && tooltip.parentNode) {
+              tooltip.parentNode.removeChild(tooltip);
+            }
+            tooltip = null;
+          }, 200);
+        }
+      });
+    };
+
+    // Añadir tooltips a los botones
+    addTooltip(copyButton, "Copiar ID al portapapeles");
+    addTooltip(scrollToBottomButton, "Desplazar al final de los registros");
+    
+    // Configurar el botón de patch toolkit
     let res = await config.GetConfig();
     if (res.patchToolkit) {
       patchToolkit.addEventListener("click", () => {
         logs.classList.toggle("show");
         this.runPatchToolkit();
       });
+      addTooltip(patchToolkit, "Ejecutar Toolkit de Parches");
     } else {
       patchToolkit.style.display = "none";
+      // Adjust scroll button position when patch toolkit is hidden
+      scrollToBottomButton.style.bottom = "80px";
     }
 
-    let reportIssueButton = document.querySelector(".report-issue");
+    // Configurar el botón de reportar problema
     reportIssueButton.classList.add("show");
     reportIssueButton.addEventListener("click", () => {
       logs.classList.toggle("show");
       this.confirmReportIssue();
     });
+    addTooltip(reportIssueButton, "Reportar un problema");
 
+    // Configurar eventos de logger
     logger2.launcher.on("info", (...args) => {
       addLog(logContent, "info", args);
     });
@@ -1752,6 +1816,9 @@ class Launcher {
       content.appendChild(span);
       if (autoScroll) {
         content.scrollTop = content.scrollHeight;
+      } else if (content.scrollHeight > content.clientHeight) {
+        // Si no está en autoScroll y hay suficiente contenido para scroll, mostrar el botón
+        scrollToBottomButton.classList.add("show");
       }
     }
 

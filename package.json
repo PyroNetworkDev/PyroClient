@@ -1,7 +1,7 @@
 {
     "name": "Pyro-Client",
     "preductname": "Pyro Client",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "sub_version": "",
     "changelog": "Mas información de esta versión en nuestro Discord",
     "description": "Launcher de minecraft para los servidores de Pyro Network.",
@@ -36,8 +36,7 @@
         "express": "^4.19.2",
         "html2canvas": "^1.4.1",
         "marked": "^14.1.2",
-        "minecraft-java-core": "^4.0.0",
-        "node-bdd": "^2.0.4",
+        "minecraft-java-core": "^4.1.1",
         "node-fetch": "^2.7.0",
         "node-machine-id": "^1.0.0",
         "systeminformation": "^5.25.11",
@@ -45,7 +44,7 @@
     },
     "devDependencies": {
         "cross-env": "^7.0.3",
-        "electron": "^30.0.9",
+        "electron": "^36.2.1",
         "electron-builder": "^24.13.3",
         "javascript-obfuscator": "^4.1.0",
         "jimp": "^0.22.12",
