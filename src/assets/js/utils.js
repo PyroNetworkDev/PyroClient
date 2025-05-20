@@ -1280,6 +1280,7 @@ async function showTermsAndConditions() {
         }
 
         return new Promise((resolve, reject) => {
+            const termsContainer = document.querySelector('.terms-container');
             const acceptButton = document.querySelector('.accept-terms-btn');
             const declineButton = document.querySelector('.decline-terms-btn');
             const messageText = document.querySelector('.terms-message');
@@ -1306,15 +1307,8 @@ async function showTermsAndConditions() {
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
-                        // Add null check and safe removal
-                        if (acceptButton && !acceptButton.disabled) {
-                          acceptButton.disabled = false;
-                          const tooltipContainer = document.querySelector('.tooltip-container');
-                          const tooltip = tooltipContainer ? tooltipContainer.querySelector('.tooltip-text') : null;
-                          if (tooltip) {
-                            tooltip.style.visibility = 'hidden';
-                          }
-                        }
+                        acceptButton.disabled = false;
+                        observer.disconnect();
                     }
                 });
             }, { threshold: 1.0 });
