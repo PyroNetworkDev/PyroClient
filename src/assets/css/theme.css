@@ -8,17 +8,27 @@
   --status-offline-color: #ff4a4a;
   --scrollbar-thumb: #888;
   --scrollbar-track: #000;
-  --element-color: #f52019;
-    --transition: all 0.5s cubic-bezier(1, 0.46, 0, 1.29);
-    --dark-color: #292929;
-    --light-color: rgb(245, 245, 245);
-    --color: #F5F5F5;
-    --background: #292929;
-    --background-element: #424242;
-    --background-transparent: #2c2c2ccc;
-    --shadow: rgba(25, 25, 25, 0.7);
-    --svg-color: brightness(0) saturate(100%) invert(100%) sepia(55%) saturate(23%) hue-rotate(236deg) brightness(108%) contrast(92%);
-
+  --transition: all 0.5s cubic-bezier(1, 0.46, 0, 1.29);
+  --dark-color: #292929;
+  --light-color: rgb(245, 245, 245);
+  --color: #F5F5F5;
+  --background: #292929;
+  --background-element: #424242;
+  --background-transparent: #2c2c2ccc;
+  --shadow: rgba(25, 25, 25, 0.7);
+  --svg-color: brightness(0) saturate(100%) invert(100%) sepia(55%) saturate(23%) hue-rotate(236deg) brightness(108%) contrast(92%);
+  --icon-unselected: #707070;
+  --box: #1A1A1A;
+  --box-hover: #202020;
+  --box-button: #0078bd;
+  --box-button-hover: #053e8a;
+  --box-button-hover-2: #001f47;
+  --box-button-gradient-1: #00FFFF;
+  --box-button-gradient-2: #0096FF;
+  --notification-red: rgba(255, 0, 0, 0.25);
+  --notification-green: rgba(0, 255, 0, 0.25);
+  --notification-blue: rgba(0, 0, 255, 0.25);
+  --notification-yellow: rgba(255, 255, 0, 0.25);
 }
 
 .global {

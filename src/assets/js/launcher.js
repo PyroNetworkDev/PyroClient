@@ -71,8 +71,12 @@ class Launcher {
     } catch (error) {
       console.error("Error al consolidar almacenamiento:", error);
     }
-    
-    
+    this.config = await config
+      .GetConfig()
+      .then((res) => res)
+      .catch((err) => err);
+    if (await this.config.error) return this.errorConnect();
+    await this.loadColors();
     // Ahora que la migración ha terminado (si era necesaria), verificamos la configuración
     const configClient = await this.db.readData("configClient");
     const isFirstRun = !configClient;
@@ -127,11 +131,6 @@ class Launcher {
     }
     
     this.initFrame();
-    this.config = await config
-      .GetConfig()
-      .then((res) => res)
-      .catch((err) => err);
-    if (await this.config.error) return this.errorConnect();
     
     if (isFirstRun) {
       await this.initConfigClient();
@@ -177,6 +176,43 @@ class Launcher {
     } else {
       await this.startLauncher();
     }
+  }
+
+  async loadColors() {
+    let res = await config.GetConfig();
+    
+    // Check if theme object exists
+    if (!res || !res.theme || typeof res.theme !== 'object') {
+      console.warn("No se encontró configuración de tema válida en el servidor, usando valores predeterminados");
+      return;
+    }
+    
+    // Define default theme values
+    const defaultTheme = {
+      'box-button': '#0078bd',
+      'box-button-hover': '#053e8a',
+      'box-button-hover-2': '#001f47',
+      'box-button-gradient-1': '#00FFFF',
+      'box-button-gradient-2': '#0096FF'
+    };
+    
+    // Apply theme properties with fallback to defaults
+    const themeProperties = [
+      'box-button',
+      'box-button-hover', 
+      'box-button-hover-2',
+      'box-button-gradient-1',
+      'box-button-gradient-2'
+    ];
+    
+    themeProperties.forEach(property => {
+      const value = res.theme[property] || defaultTheme[property];
+      if (value) {
+        document.documentElement.style.setProperty(`--${property}`, value);
+      } else {
+        console.warn(`No se encontró '${property}' en la configuración del servidor, aplicando valor predeterminado`);
+      }
+    });
   }
   
   startLoadingDisplayTimer() {

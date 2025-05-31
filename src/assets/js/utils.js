@@ -1705,7 +1705,6 @@ async function getExecutionKey() {
     }
     
     const data = await response.json();
-    console.log("Execution key response:", data);
     return data;
   } catch (error) {
     console.error("Error getting execution key:", error);

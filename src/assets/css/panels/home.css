@@ -1,18 +1,3 @@
-* {
-    --icon-unselected: #707070;
-    --box: #1A1A1A;
-    --box-hover: #202020;
-    --box-button: #ff533a;
-    --box-button-hover: #f52019;
-    --box-button-hover-2: #f52019;
-    --box-button-gradient-1: #ff9835;
-    --box-button-gradient-2: #ff533a;
-    --notification-red: rgba(255, 0, 0, 0.25);
-    --notification-green: rgba(0, 255, 0, 0.25);
-    --notification-blue: rgba(0, 0, 255, 0.25);
-    --notification-yellow: rgba(255, 255, 0, 0.25);
-}
-
 .home .container {
     display: flex;
     height: 100%;
@@ -134,7 +119,6 @@
     z-index: 2;
     transition: color 0.05s, background-color 0.2s, background-image 0.2s, top 0.2s, left 0.2s, height 0.2s, opacity 0.2s, margin 0.2s;
     text-decoration:none;
-    font-weight:bold;
 }
 .storebutton:hover {
     background-color: var(--box-button-hover);
@@ -422,7 +406,7 @@
 }
 
 .player-menu {
-    color: var(--element-color);
+    color: var(--box-button);
     transform: rotate(270deg);
     pointer-events: none;
 }
@@ -444,7 +428,7 @@
     align-items: center;
     position: relative;
     background: linear-gradient(135deg, var(--box-button) 0%, var(--box-button-hover) 100%);
-    box-shadow: 0px 3px 10px rgba(245, 32, 25, 0.3);
+    box-shadow: 0px 3px 10px rgba(from var(--box-button) r g b / 0.3);
     border-radius: 10px;
     color: #fff;
     cursor: pointer;
@@ -472,7 +456,7 @@
 
 .play-instance:hover {
     transform: translateY(-2px) scale(1.02);
-    box-shadow: 0px 6px 15px rgba(245, 32, 25, 0.5);
+    box-shadow: 0px 6px 15px rgba(from var(--box-button) r g b / 0.5);
 }
 
 .play-instance:hover:before {
@@ -481,7 +465,7 @@
 
 .play-instance:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(245, 32, 25, 0.3);
+    box-shadow: 0px 2px 5px rgba(from var(--box-button) r g b / 0.3);
 }
 
 .play-btn {
@@ -527,7 +511,7 @@
 
 .instance-select:active, .add-instance:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(245, 32, 25, 0.3);
+    box-shadow: 0px 2px 5px rgba(from var(--box-button) r g b / 0.3);
 }
 
 .grid-icon {
@@ -569,7 +553,7 @@
 
 .action-button:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(245, 32, 25, 0.3);
+    box-shadow: 0px 2px 5px rgba(from var(--box-button) r g b / 0.3);
 }
 
 .action-button:hover .settings-btn {
@@ -636,15 +620,15 @@
 }
 
 .progress-bar::-webkit-progress-bar {
-    background: rgba( 0, 0, 0, 0.25 );
+    background: rgba(0, 0, 0, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.5);
     border-radius: 10px;
-    backdrop-filter: blur( 8px );
-    -webkit-backdrop-filter: blur( 5px );
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(5px);
 }
 
 .progress-bar::-webkit-progress-value {
-    background-color: var(--element-color);
+    background-color: var(--box-button);
     border-radius: 10px;
 }
 
@@ -781,8 +765,8 @@
 }
 
 .instance-element:hover {
-    background: rgba(245, 32, 25, 0.2);
-    border: 1px solid rgba(245, 32, 25, 0.3);
+    background: rgba(from var(--box-button) r g b / 0.2);
+    border: 1px solid rgba(from var(--box-button) r g b / 0.3);
 }
 
 .instance-image {
@@ -811,8 +795,8 @@
 }
 
 .active-instance {
-    background: rgba(245, 32, 25, 0.4);
-    border: 1px solid rgba(245, 32, 25, 0.3);
+    background: rgba(from var(--box-button) r g b / 0.4);
+    border: 1px solid rgba(from var(--box-button) r g b / 0.3);
 }
 
 .close-popup {
@@ -844,7 +828,7 @@
 }
 
 .instance-elements:hover {
-    background: var(--element-color);
+    background: var(--box-button);
 }
 
 .message-container {
@@ -999,7 +983,7 @@
 /* Añadir efecto al hacer clic en los botones de instancias recientes */
 .recent-instance-button:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 3px rgba(0, 120, 189, 0.3);
+    box-shadow: 0px 2px 3px rgba(from var(--box-button) r g b / 0.3);
 }
 
 .recent-instance-button.selected-instance {
@@ -1110,7 +1094,7 @@
 
 .add-instance-input:focus {
     border-color: var(--box-button);
-    box-shadow: 0 0 8px rgba(245, 32, 25, 0.5);
+    box-shadow: 0 0 8px rgba(from var(--box-button) r g b / 0.5);
 }
 
 .add-instance-input::placeholder {
@@ -1143,7 +1127,7 @@
 
 .add-instance-confirm:hover {
     transform: translateY(-2px);
-    box-shadow: 0px 4px 10px rgba(245, 32, 25, 0.4);
+    box-shadow: 0px 4px 10px rgba(from var(--box-button) r g b / 0.4);
 }
 
 .add-instance-confirm:active {

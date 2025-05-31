@@ -49,12 +49,12 @@
 .nav-settings-btn:hover {
     background-color: var(--box-button-hover);
     transform: translateY(-2px) scale(1.02);
-    box-shadow: 0px 6px 15px rgba(245, 32, 25, 0.5);
+    box-shadow: 0px 6px 15px rgba(from var(--box-button) r g b / 0.5);
 }
 
 .nav-settings-btn:active {
     transform: translateY(1px) scale(0.98);
-    box-shadow: 0px 2px 5px rgba(245, 32, 25, 0.3);
+    box-shadow: 0px 2px 5px rgba(from var(--box-button) r g b / 0.3);
 }
 
 .active-settings-BTN {
@@ -232,7 +232,7 @@ input:disabled::placeholder {
 /* Añadido: Efecto de hover para las cuentas */
 .account:hover {
     transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 8px 15px rgba(255, 255, 255, 0.4); /* Cambiado a blanco */
+    box-shadow: 0 8px 15px rgba(255, 255, 255, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.4);
     background: rgba(0, 0, 0, 0.2);
 }
@@ -826,8 +826,7 @@ input:disabled::placeholder {
 }
 
 .launcher-behavior-option.selected {
-    background-color: rgba(var(--color-rgb), 0.2);
-    border: 1px solid var(--color);
+    background-color: rgba(var(--box-button-rgb), 0.15);
     box-shadow: 0 0 10px rgba(var(--color-rgb), 0.3);
 }
 
@@ -989,4 +988,8 @@ body.performance-mode .data-management-btn {
     font-weight: 500;
     width: calc(100% - 2.4rem); /* Ajustado para el padding horizontal */
     box-sizing: border-box;
+}
+
+.active-step {
+    background-color: rgba(from var(--box-button) r g b / 0.582);
 }

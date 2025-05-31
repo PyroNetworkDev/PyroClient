@@ -789,7 +789,7 @@ class Home {
                 fs.mkdirSync(instanceModsPath, { recursive: true });
             }
 
-            await hideFolder(instanceModsPath);
+            /* await hideFolder(instanceModsPath); */
 
             const installResult = await installMKLibMods(options.name, minecraftVersion, loaderType);
 
@@ -917,27 +917,7 @@ class Home {
             console.log(`Limpieza no configurada o desactivada para la instancia: ${options.name}`);
         }
 
-        try {
-            launch.Launch(opt);
-        } catch (launchError) {
-            this.enablePlayButton();
-            infoStartingBOX.style.display = "none";
-            playInstanceBTN.style.display = "flex";
-            instanceSelectBTN.disabled = false;
-            instanceSelectBTN.classList.remove('disabled');
-            if (closeGameButton) {
-                closeGameButton.style.display = 'none';
-            }
-
-            let errorPopup = new popup();
-            errorPopup.openPopup({
-                title: 'Error al iniciar el juego',
-                content: `Ha ocurrido un error al iniciar el juego: ${launchError.message || 'Error desconocido'}`,
-                color: 'red',
-                options: true
-            });
-            return;
-        }
+        launch.Launch(opt);
 
         launch.on('extract', extract => {
             ipcRenderer.send('main-window-progress-load');
