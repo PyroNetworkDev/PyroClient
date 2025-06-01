@@ -800,11 +800,12 @@ class Home {
             }
 
             await new Promise(resolve => setTimeout(resolve, 500));
-            infoStarting.innerHTML = `Conectando...`;
-            progressBar.value = 0;
         } catch (error) {
             console.error("Error al instalar las librerias extra:", error);
         }
+
+        infoStarting.innerHTML = `Conectando...`;
+        progressBar.value = 0;
 
         console.log("Obteniendo clave de ejecución...");
         let execKey = null;
@@ -918,6 +919,8 @@ class Home {
         }
 
         launch.Launch(opt);
+        infoStarting.innerHTML = `Verificando archivos...`;
+        progressBar.value = 0;
 
         launch.on('extract', extract => {
             ipcRenderer.send('main-window-progress-load');

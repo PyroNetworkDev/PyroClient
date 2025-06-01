@@ -731,7 +731,7 @@ input:disabled::placeholder {
 }
 
 .reset-config-btn {
-    background: linear-gradient(135deg, var(--box-button) 0%, var(--box-button-hover) 100%);
+    background: linear-gradient(135deg, #0078bd 0%, #053e8a 100%);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
@@ -747,6 +747,27 @@ input:disabled::placeholder {
 }
 
 .reset-config-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.delete-assets-btn {
+    background: linear-gradient(135deg, #2fd381 0%, #1cb795 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.delete-assets-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(2, 97, 76, 0.4);
+}
+
+.delete-assets-btn:hover::before {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.delete-assets-btn:active {
     transform: translateY(1px);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
 }

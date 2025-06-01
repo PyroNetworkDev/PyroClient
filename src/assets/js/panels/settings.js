@@ -1027,6 +1027,7 @@ class Settings {
 
         const resetConfigBtn = document.querySelector('.reset-config-btn');
         const deleteAllBtn = document.querySelector('.delete-all-btn');
+        const deleteAssetsBtn = document.querySelector('.delete-assets-btn');
 
         if (resetConfigBtn) {
             resetConfigBtn.addEventListener('click', async () => {
@@ -1037,6 +1038,12 @@ class Settings {
         if (deleteAllBtn) {
             deleteAllBtn.addEventListener('click', async () => {
                 this.handleDeleteAll();
+            });
+        }
+
+        if (deleteAssetsBtn) {
+            deleteAssetsBtn.addEventListener('click', async () => {
+                this.handleDeleteAssets();
             });
         }
     }
@@ -1154,6 +1161,67 @@ class Settings {
             errorPopup.openPopup({
                 title: 'Error',
                 content: `Ha ocurrido un error al eliminar los datos: ${error.message}`,
+                color: 'red',
+                options: true
+            });
+        }
+    }
+
+    async handleDeleteAssets() {
+        const deleteAssetsPopup = new popup();
+        const result = await new Promise(resolve => {
+            deleteAssetsPopup.openDialog({
+                title: 'Eliminar assets',
+                content: '¿Estás seguro de que quieres eliminar todos los assets del juego? Esta acción eliminará:<br>- Todos los archivos de assets descargados<br>- Todas las configuraciones guardadas dentro del juego<br>Esta acción no puede deshacerse.',
+                options: true,
+                callback: resolve
+            });
+        }
+        );
+        if (result === 'cancel') {
+            return;
+        }
+        try {
+            const processingPopup = new popup();
+            processingPopup.openPopup({
+                title: 'Eliminando assets',
+                content: 'Por favor, espera mientras se eliminan los assets...',
+                color: 'var(--color)'
+            });
+
+            const appdataPath = await appdata();
+            const dataPath = path.join(
+                appdataPath,
+                process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`
+            );
+            //eliminar los directorios de datapath/assets, dataPath/instances, dataPath/libraries, datapath/loader, dataPath/versions y datapath/runtime
+            const assetsPath = path.join(dataPath, 'assets');
+            const instancesPath = path.join(dataPath, 'instances');
+            const librariesPath = path.join(dataPath, 'libraries');
+            const loaderPath = path.join(dataPath, 'loader');
+            const versionsPath = path.join(dataPath, 'versions');
+            const runtimePath = path.join(dataPath, 'runtime');
+            console.log('Eliminando directorios de assets, instancias, bibliotecas, loader, versiones y runtime...');
+            // Eliminar los directorios de assets, instancias, bibliotecas, loader, versiones y runtime
+            await this.recursiveDelete(assetsPath);
+            await this.recursiveDelete(instancesPath);
+            await this.recursiveDelete(librariesPath);
+            await this.recursiveDelete(loaderPath);
+            await this.recursiveDelete(versionsPath);
+            await this.recursiveDelete(runtimePath);
+            
+            // Wait a moment before restarting
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            processingPopup.closePopup();
+            ipcRenderer.send('app-restart');
+
+        } catch (error) {
+            console.error('Error deleting assets:', error);
+            const errorPopup = new popup();
+            errorPopup.openPopup({
+                title: 'Error',
+                content: `Ha ocurrido un error al eliminar los assets: ${error.message}`,
                 color: 'red',
                 options: true
             });
