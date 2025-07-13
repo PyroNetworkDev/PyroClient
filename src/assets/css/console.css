@@ -1,0 +1,463 @@
+@import 'font.css';
+@import 'theme.css';
+
+/* 
+ * Console CSS - Usando variables dinámicas del tema
+ * Variables utilizadas:
+ * --box-button: Color principal de los botones
+ * --box-button-hover: Color hover de los botones  
+ * --box-button-hover-2: Color active/pressed de los botones
+ * --box-hover: Color hover sutil para elementos
+ * --background: Color de fondo principal
+ * --background-element: Color de fondo para elementos/contenedores
+ * --color: Color de texto principal
+ * --icon-unselected: Color para elementos deshabilitados
+ */
+
+/* Reset básico */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    outline: none;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--background);
+    color: var(--color);
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* Container principal de la consola */
+.console-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: var(--background);
+}
+
+/* Header de la consola */
+.console-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background-color: var(--background-element);
+    border-bottom: 1px solid var(--box-hover);
+    min-height: 50px;
+}
+
+.console-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--color);
+}
+
+.console-title i {
+    color: var(--box-button);
+    font-size: 18px;
+}
+
+.console-base-version {
+    font-size: 12px;
+    background-color: var(--box-button);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 10px;
+    font-style: italic;
+    color: #aaa;
+}
+
+.console-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.console-btn {
+    background-color: var(--box-button);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.console-btn:hover {
+    background-color: var(--box-button-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.console-btn:active {
+    background-color: var(--box-button-hover-2);
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.console-btn i {
+    font-size: 14px;
+}
+
+/* Área principal de la consola */
+.console-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.logger-container {
+    flex: 1;
+    position: relative;
+    background-color: var(--background);
+    overflow: hidden;
+}
+
+.logger-content {
+    height: 100%;
+    overflow-y: auto;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.4;
+    background-color: #0d1117;
+    color: #e6edf3;
+}
+
+.logger-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.logger-content::-webkit-scrollbar-track {
+    background: #161b22;
+}
+
+.logger-content::-webkit-scrollbar-thumb {
+    background: var(--box-button);
+    border-radius: 4px;
+}
+
+.logger-content::-webkit-scrollbar-thumb:hover {
+    background: var(--box-button-hover);
+}
+
+/* Estilos para las entradas de log */
+.log-entry {
+    display: flex;
+    margin-bottom: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+    word-break: break-word;
+}
+
+.log-entry:hover {
+    background-color: var(--box-hover);
+    opacity: 0.8;
+}
+
+.log-timestamp {
+    color: #7d8590;
+    margin-right: 8px;
+    min-width: 90px;
+    font-size: 11px;
+}
+
+.log-level {
+    margin-right: 8px;
+    font-weight: bold;
+    min-width: 60px;
+}
+
+.log-message {
+    flex: 1;
+    white-space: pre-wrap;
+}
+
+/* Colores para diferentes niveles de log */
+.log-entry.info .log-level {
+    color: #58a6ff;
+}
+
+.log-entry.warn .log-level {
+    color: #f1c232;
+}
+
+.log-entry.error .log-level {
+    color: #f85149;
+}
+
+.log-entry.debug .log-level {
+    color: #a5a5a5;
+}
+
+.log-entry.log .log-level {
+    color: #e6edf3;
+}
+
+/* Botón de scroll al final */
+.scroll-to-bottom {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background-color: var(--box-button);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.scroll-to-bottom.show {
+    display: flex;
+}
+
+.scroll-to-bottom:hover {
+    background-color: var(--box-button-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.scroll-to-bottom:active {
+    background-color: var(--box-button-hover-2);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.scroll-to-bottom i {
+    font-size: 16px;
+}
+
+/* Footer de la consola */
+.console-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background-color: var(--background-element);
+    border-top: 1px solid var(--box-hover);
+    min-height: 50px;
+}
+
+.console-hwid-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--color);
+}
+
+.console-hwid {
+    background-color: var(--background);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    color: var(--color);
+}
+
+.copy-console-hwid {
+    background-color: var(--box-button);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.copy-console-hwid:hover {
+    background-color: var(--box-button-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.copy-console-hwid:active {
+    background-color: var(--box-button-hover-2);
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.console-actions-footer {
+    display: flex;
+    gap: 10px;
+}
+
+.console-actions-footer .console-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+/* Estados especiales */
+.console-btn:disabled {
+    background-color: var(--box-hover);
+    color: var(--icon-unselected);
+    cursor: not-allowed;
+    transform: none;
+    opacity: 0.6;
+    box-shadow: none;
+}
+
+.console-btn:disabled:hover {
+    background-color: var(--box-hover);
+    transform: none;
+    box-shadow: none;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.log-entry {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Tooltip */
+.tooltip {
+    position: relative;
+}
+
+.tooltip::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(-5px);
+}
+
+/* Scrollbar personalizada para toda la aplicación */
+* ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+* ::-webkit-scrollbar-track {
+    background: var(--background);
+}
+
+* ::-webkit-scrollbar-thumb {
+    background: var(--box-button);
+    border-radius: 4px;
+}
+
+* ::-webkit-scrollbar-thumb:hover {
+    background: var(--box-button-hover);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .console-header {
+        padding: 10px 15px;
+    }
+    
+    .console-footer {
+        padding: 10px 15px;
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+    
+    .console-actions,
+    .console-actions-footer {
+        justify-content: center;
+    }
+    
+    .logger-content {
+        padding: 10px;
+        font-size: 12px;
+    }
+    
+    .console-hwid-container {
+        justify-content: center;
+    }
+}
+
+/* Estados de carga */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid var(--box-button);
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Performance mode */
+body.performance-mode * {
+    transition: none !important;
+    animation: none !important;
+}
+
+body.performance-mode .log-entry {
+    animation: none;
+}
+
+body.performance-mode .console-btn:hover,
+body.performance-mode .console-btn:active,
+body.performance-mode .scroll-to-bottom:hover,
+body.performance-mode .scroll-to-bottom:active,
+body.performance-mode .copy-console-hwid:hover,
+body.performance-mode .copy-console-hwid:active {
+    transform: none;
+}

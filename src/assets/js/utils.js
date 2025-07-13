@@ -4,7 +4,6 @@
  */
 
 const { ipcRenderer, shell } = require('electron')
-const { Status } = require('minecraft-java-core')
 const fs = require('fs');
 const path = require('path');
 const pkg = require('../package.json');
@@ -20,6 +19,8 @@ import { skin2D } from './utils/skin.js';
 import slider from './utils/slider.js';
 import cleanupManager from './utils/cleanup-manager.js';
 import { getHWID } from './MKLib.js';
+import MinecraftStatus from './utils/minecraft-status.js';
+import localization from './utils/localization.js';
 let username = '';
 let DiscordUsername = '';
 let DiscordPFP = '';
@@ -534,7 +535,7 @@ function setStaticBackground() {
   
   (async () => {
     const imagePaths = [
-      `assets/images/background/${season}.jpg`,
+      `assets/images/background/${season}.png`,
       'assets/images/background/default.png'
     ];
     
@@ -1055,19 +1056,37 @@ async function setStatus(opt) {
         playersOnline.innerHTML = '0'
         return
     }
+    
     instanceIcon.src = opt.icon || './assets/images/icon.png'
     let { ip, port, nameServer } = opt.status
     nameServerElement.innerHTML = nameServer
-    let status = new Status(ip, port);
-    let statusServer = await status.getStatus().then(res => res).catch(err => err);
     
-
-    if (!statusServer.error) {
-        statusServerElement.classList.remove('red')
-        document.querySelector('.status-player-count').classList.remove('red')
-        statusServerElement.innerHTML = `Online - ${statusServer.ms} ms`
-        playersOnline.innerHTML = statusServer.playersConnect
-    } else {
+    // Mostrar estado de carga inmediatamente
+    statusServerElement.classList.remove('red')
+    statusServerElement.innerHTML = `Cargando...`
+    document.querySelector('.status-player-count').classList.remove('red')
+    playersOnline.innerHTML = '0'
+    
+    
+    try {
+        // Use the new lightweight MinecraftStatus
+        let status = new MinecraftStatus(ip, port);
+        let statusServer = await status.getStatus();
+        
+        
+        if (statusServer.online) {
+            statusServerElement.classList.remove('red')
+            document.querySelector('.status-player-count').classList.remove('red')
+            statusServerElement.innerHTML = `Online - ${statusServer.ms} ms`
+            playersOnline.innerHTML = statusServer.playersConnect || '0'
+        } else {
+            statusServerElement.classList.add('red')
+            statusServerElement.innerHTML = `Offline - 0 ms`
+            document.querySelector('.status-player-count').classList.add('red')
+            playersOnline.innerHTML = '0'
+        }
+    } catch (error) {
+        console.error('Error checking server status:', error);
         statusServerElement.classList.add('red')
         statusServerElement.innerHTML = `Offline - 0 ms`
         document.querySelector('.status-player-count').classList.add('red')
@@ -1755,6 +1774,7 @@ export {
     setStaticBackground as setStaticBackground,
     fileExists as fileExists,
     isImageUrl as isImageUrl,
-    getExecutionKey as getExecutionKey
+    getExecutionKey as getExecutionKey,
+    localization as localization
 }
 window.setVideoSource = setVideoSource;

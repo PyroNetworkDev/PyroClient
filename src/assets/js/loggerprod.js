@@ -1,10 +1,12 @@
 'use strict';
 
 class Logger2 {
-  constructor(identifier, color){
+  constructor(identifier, color, fileLogger = null, consoleWindow = null){
     this.identifier = identifier;
     this.color = color;
     this.console = console;
+    this.fileLogger = fileLogger;
+    this.consoleWindow = consoleWindow;
   }
 
   log(...text) {
@@ -29,6 +31,14 @@ class Logger2 {
 
   func = [];
 
+  setFileLogger(fileLogger) {
+    this.fileLogger = fileLogger;
+  }
+
+  setConsoleWindow(consoleWindow) {
+    this.consoleWindow = consoleWindow;
+  }
+
   on(event, func){
     if(!this.func[event]) this.func[event] = [];
     this.func[event].push(func);
@@ -40,11 +50,35 @@ class Logger2 {
   }
 
   emit(event, ...args){
+    // Log a la consola del navegador
     this.console[event](`%c[${this.identifier}]`, `color: ${this.color};`, ...args);
-    if(event == "log") event = "info";
-    if(this.func[event]){
-      for(let func of this.func[event]){
-        func(...args);
+    
+    // Normalizar el evento
+    const normalizedEvent = event === "log" ? "info" : event;
+    
+    // Solo enviar a la ventana de consola, no al archivo directamente
+    // El archivo se maneja a través del handler 'log-message' en app.js
+    if (this.consoleWindow && this.consoleWindow.isReady && this.consoleWindow.isReady()) {
+      try {
+        this.consoleWindow.sendLog({
+          type: normalizedEvent,
+          args: args,
+          timestamp: new Date(),
+          identifier: this.identifier
+        });
+      } catch (error) {
+        this.console.error('Error sending to console window:', error);
+      }
+    }
+    
+    // Ejecutar listeners registrados
+    if(this.func[normalizedEvent]){
+      for(let func of this.func[normalizedEvent]){
+        try {
+          func(...args);
+        } catch (error) {
+          this.console.error('Error in logger event listener:', error);
+        }
       }
     }
   }

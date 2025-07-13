@@ -1,4 +1,4 @@
-import { config, database, logger, changePanel} from '../utils.js'
+import { config, database, logger, changePanel, localization} from '../utils.js'
 
 class Mods {
     static id = "mods";
@@ -13,7 +13,7 @@ class Mods {
 
         document.querySelector('.back-btn').addEventListener('click', e => {
             document.querySelector('.mods-list').innerHTML = '';
-            document.querySelector('.dropdown-instance-select button a').innerHTML = 'Seleccionar cliente...';
+            document.querySelector('.dropdown-instance-select button a').innerHTML = localization.t('mods.select_client');
             changePanel('home')
         })
 
@@ -120,7 +120,7 @@ class Mods {
                 modsPanel.appendChild(modItem);
             });
         } else {
-            modsPanel.textContent = 'No hay mods opcionales disponibles para este cliente.';
+            modsPanel.textContent = localization.t('mods.no_mods');
         }
     }
 }

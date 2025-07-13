@@ -31,7 +31,8 @@ import {
   showTermsAndConditions,
   setBackgroundMusic,
   setPerformanceMode,
-  patchLoader
+  patchLoader,
+  localization
 } from "./utils.js";
 import {
   getHWID,
@@ -45,7 +46,9 @@ import {
   deleteDiscordToken,
   migrateDiscordToken
 } from "./MKLib.js";
-const { AZauth, Microsoft, Mojang } = require("minecraft-java-core");
+const { Auth } = require("msmc");
+const { Authenticator } = require("minecraft-launcher-core");
+import AZauth from "./utils/azauth.js";
 
 const { ipcRenderer } = require("electron");
 const fs = require("fs");
@@ -71,23 +74,63 @@ class Launcher {
     } catch (error) {
       console.error("Error al consolidar almacenamiento:", error);
     }
+    
+    // Migrate accounts to new authentication system
+    console.log("Checking for account authentication migration...");
+    try {
+      await this.db.migrateAccountsToNewAuth();
+    } catch (error) {
+      console.error("Error migrating accounts to new auth system:", error);
+    }
+    
+    // Verificar la configuración del cliente ANTES de inicializar localización
+    const configClient = await this.db.readData("configClient");
+    let isFirstRun = !configClient;
+    let needsLanguageSetup = false;
+    
+    // Inicializar sistema de localización
+    console.log("Inicializando sistema de localización...");
+    try {
+      await localization.initialize(this.db);
+      
+      // Verificar si se necesita configuración inicial basada en el idioma
+      needsLanguageSetup = localization.needsInitialLanguageSetup ? localization.needsInitialLanguageSetup() : (localization.needsInitialSetup || false);
+      if (needsLanguageSetup) {
+        console.log("🔧 Se detectó que se necesita configuración inicial");
+      }
+    } catch (error) {
+      console.error("Error inicializando sistema de localización:", error);
+      // Si hay error con localización, también forzar configuración inicial
+      needsLanguageSetup = true;
+    }
+    
+    // Consolidar los flags de configuración inicial
+    const needsInitialSetup = isFirstRun || needsLanguageSetup;
+    
     this.config = await config
       .GetConfig()
       .then((res) => res)
       .catch((err) => err);
     if (await this.config.error) return this.errorConnect();
     await this.loadColors();
-    // Ahora que la migración ha terminado (si era necesaria), verificamos la configuración
-    const configClient = await this.db.readData("configClient");
-    const isFirstRun = !configClient;
     
-    if (isFirstRun) {
-      console.log("Primera ejecución detectada. Iniciando configuración inicial...");
-      await this.showInitialSetup();
+    console.log(`ConfigClient existe: ${!!configClient}, Primera ejecución: ${isFirstRun}, Necesita config de idioma: ${needsLanguageSetup}`);
+    
+    if (needsInitialSetup) {
+      console.log("Configuración inicial necesaria. Iniciando configuración inicial...");
+      
+      try {
+        await this.showInitialSetup();
+        console.log("Configuración inicial completada exitosamente");
+        // Limpiar flag de configuración inicial en localization
+        localization.clearInitialSetupFlag();
+      } catch (error) {
+        console.error("Error durante la configuración inicial:", error);
+      }
       this.hideLoadingOverlayWithFade();
       
       console.log("Inicializando cleanup manager después de configuración inicial");
-      await cleanupManager.initialize();
+      await cleanupManager.initializeWithDatabase(this.db);
     } else {
       // Verificar explícitamente la existencia de la propiedad launcher_config.performance_mode
       // antes de intentar acceder a ella
@@ -105,7 +148,7 @@ class Launcher {
       }
       
       console.log("Inicializando cleanup manager con configuración existente");
-      await cleanupManager.initialize();
+      await cleanupManager.initializeWithDatabase(this.db);
     }
     this.startLoadingDisplayTimer();
     
@@ -132,7 +175,7 @@ class Launcher {
     
     this.initFrame();
     
-    if (isFirstRun) {
+    if (!isFirstRun) {
       await this.initConfigClient();
     }
     
@@ -192,6 +235,7 @@ class Launcher {
       'box-button': '#0078bd',
       'box-button-hover': '#053e8a',
       'box-button-hover-2': '#001f47',
+      'box-hover': '#202020',
       'box-button-gradient-1': '#00FFFF',
       'box-button-gradient-2': '#0096FF'
     };
@@ -201,18 +245,40 @@ class Launcher {
       'box-button',
       'box-button-hover', 
       'box-button-hover-2',
+      'box-hover',
       'box-button-gradient-1',
       'box-button-gradient-2'
     ];
+    
+    const appliedColors = {};
     
     themeProperties.forEach(property => {
       const value = res.theme[property] || defaultTheme[property];
       if (value) {
         document.documentElement.style.setProperty(`--${property}`, value);
+        appliedColors[property] = value;
       } else {
         console.warn(`No se encontró '${property}' en la configuración del servidor, aplicando valor predeterminado`);
       }
     });
+
+    // Enviar colores a la consola separada con reintentos
+    try {
+      const sendColorsWithRetry = (colors, retries = 5) => {
+        ipcRenderer.send('apply-dynamic-colors', colors);
+        
+        // Reenviar colores cada 2 segundos por si la consola se inicializa después
+        if (retries > 0) {
+          setTimeout(() => {
+            sendColorsWithRetry(colors, retries - 1);
+          }, 2000);
+        }
+      };
+      
+      sendColorsWithRetry(appliedColors);
+    } catch (error) {
+      console.warn('Error enviando colores a la consola:', error);
+    }
   }
   
   startLoadingDisplayTimer() {
@@ -297,6 +363,7 @@ class Launcher {
   }
 
   async showInitialSetup() {
+    console.log("=== INICIO DE showInitialSetup() ===");
     return new Promise(async (resolve) => {
       console.log("Mostrando configuración inicial");
       
@@ -314,14 +381,38 @@ class Launcher {
         loadingOverlay.classList.remove('active');
         loadingOverlay.style.visibility = 'hidden';
         loadingOverlay.style.opacity = '0';
+        console.log("Loading overlay ocultado para mostrar setup");
+      } else {
+        console.warn("No se encontró loading overlay");
       }
       
-      document.querySelector('.setup-modal').style.display = 'flex';
+      const setupModal = document.querySelector('.setup-modal');
+      console.log("DOM elements found:", {
+        setupModal: !!setupModal,
+        body: !!document.body,
+        panels: !!document.querySelector('.panels')
+      });
       
-      document.querySelector('#setup-total-ram').textContent = `${totalMem} GB`;
+      if (setupModal) {
+        setupModal.style.display = 'flex';
+        console.log("Setup modal mostrado");
+      } else {
+        console.error("No se encontró el elemento .setup-modal");
+        console.log("HTML body contains:", document.body ? document.body.innerHTML.substring(0, 500) : "No body found");
+        resolve(); // Resolver inmediatamente si no se encuentra el modal
+        return;
+      }
+      
+      const totalRamElement = document.querySelector('#setup-total-ram');
+      if (totalRamElement) {
+        totalRamElement.textContent = `${totalMem} GB`;
+      } else {
+      }
       
       const setupSliderElement = document.querySelector(".setup-memory-slider");
-      setupSliderElement.setAttribute("max", Math.trunc((80 * totalMem) / 100));
+      if (setupSliderElement) {
+        setupSliderElement.setAttribute("max", Math.trunc((80 * totalMem) / 100));
+      }
       
       class SetupSlider {
         constructor(element, minValue, maxValue) {
@@ -499,14 +590,43 @@ class Launcher {
       }
       
       setTimeout(() => {
-        const setupSlider = new SetupSlider(setupSliderElement, defaultMinRam, defaultMaxRam);
         
-        let currentStep = 1;
-        const totalSteps = 4;
+        // Re-verificar que setupModal esté disponible
+        const setupModalCheck = document.querySelector('.setup-modal');
+        if (!setupModalCheck) {
+          console.error("SetupModal desapareció después del timeout");
+          resolve();
+          return;
+        }
+        
+        // Re-verificar setupSliderElement
+        const setupSliderElementCheck = document.querySelector(".setup-memory-slider");
+        if (!setupSliderElementCheck) {
+
+          resolve();
+          return;
+        }
+        
+        const setupSlider = new SetupSlider(setupSliderElementCheck, defaultMinRam, defaultMaxRam);
+        
+        let currentStep = 0; // Comenzar desde 0 (idioma)
+        const totalSteps = 4; // Total de pasos: 0, 1, 2, 3 (4 pasos en total)
         
         const prevBtn = document.querySelector('.setup-prev-btn');
         const nextBtn = document.querySelector('.setup-next-btn');
         const finishBtn = document.querySelector('.setup-finish-btn');
+        
+        if (!prevBtn || !nextBtn || !finishBtn) {
+          console.error("No se encontraron todos los botones del setup:", {
+            prevBtn: !!prevBtn,
+            nextBtn: !!nextBtn,
+            finishBtn: !!finishBtn
+          });
+          resolve(); // Resolver inmediatamente si faltan botones
+          return;
+        }
+        
+        console.log("Todos los botones del setup encontrados correctamente");
         
         const stepIndicators = document.querySelectorAll('.step');
         
@@ -517,13 +637,17 @@ class Launcher {
           });
           
           let currentSection = document.querySelector(`#setup-step-${step}`);
-          currentSection.classList.remove('prev', 'next');
-          currentSection.classList.add('active');
+          if (currentSection) {
+            currentSection.classList.remove('prev', 'next');
+            currentSection.classList.add('active');
+          }
           
-          for (let i = 1; i < step; i++) {
+          for (let i = 0; i < step; i++) {
             let prevSection = document.querySelector(`#setup-step-${i}`);
-            prevSection.classList.remove('active', 'next');
-            prevSection.classList.add('prev');
+            if (prevSection) {
+              prevSection.classList.remove('active', 'next');
+              prevSection.classList.add('prev');
+            }
           }
           
           stepIndicators.forEach(indicator => {
@@ -534,65 +658,27 @@ class Launcher {
             }
           });
           
-          prevBtn.style.display = step > 1 ? 'block' : 'none';
-          nextBtn.style.display = step < totalSteps ? 'block' : 'none';
-          finishBtn.style.display = step === totalSteps ? 'block' : 'none';
+          prevBtn.style.display = step > 0 ? 'block' : 'none';
+          nextBtn.style.display = step < (totalSteps - 1) ? 'block' : 'none';
+          finishBtn.style.display = step === (totalSteps - 1) ? 'block' : 'none';
         };
         
-        updateStepUI(1);
+        updateStepUI(0); // Comenzar en el paso 0 (idioma)
+        
+        // Configurar selector de idioma
+        let selectedLanguage = 'es-ES'; // Usar español como idioma inicial por defecto
+        this.selectedSetupLanguage = selectedLanguage; // Guardar en propiedad de clase
+        this.setupLanguageSelector(selectedLanguage);
         
         prevBtn.addEventListener('click', () => {
-          if (currentStep > 1) {
+          if (currentStep > 0) {
             currentStep--;
             updateStepUI(currentStep);
           }
         });
         
-        const maxDownloadsInput = document.querySelector("#setup-max-downloads");
-        let isMaxDownloadsValid = true;
-        
-        const validateMaxDownloads = () => {
-          if (!maxDownloadsInput) return true;
-          
-          const value = parseInt(maxDownloadsInput.value);
-          isMaxDownloadsValid = !isNaN(value) && value >= 1 && value <= 20;
-          
-          if (isMaxDownloadsValid) {
-            maxDownloadsInput.style.borderColor = "";
-            maxDownloadsInput.style.backgroundColor = "";
-            
-            const existingError = document.querySelector('.max-downloads-error');
-            if (existingError) {
-              existingError.remove();
-            }
-          } else {
-            maxDownloadsInput.style.borderColor = "red";
-            maxDownloadsInput.style.backgroundColor = "rgba(255, 0, 0, 0.1)";
-            
-            let errorMsg = document.querySelector('.max-downloads-error');
-            if (!errorMsg) {
-              errorMsg = document.createElement('div');
-              errorMsg.className = 'max-downloads-error';
-              errorMsg.style.color = 'red';
-              errorMsg.style.fontSize = '12px';
-              errorMsg.style.marginTop = '5px';
-              errorMsg.innerText = 'Por favor ingresa un número entre 1 y 20';
-              
-              maxDownloadsInput.insertAdjacentElement('afterend', errorMsg);
-            }
-          }
-          
-          return isMaxDownloadsValid;
-        };
-        
         nextBtn.addEventListener('click', () => {
-          if (currentStep === 3) {
-            if (!validateMaxDownloads()) {
-              return;
-            }
-          }
-          
-          if (currentStep < totalSteps) {
+          if (currentStep < (totalSteps - 1)) {
             currentStep++;
             updateStepUI(currentStep);
           }
@@ -617,27 +703,18 @@ class Launcher {
         
         const performanceModeToggle = document.querySelector("#setup-performance-mode");
         performanceModeToggle.checked = false;
-        
-        if (maxDownloadsInput) {
-          maxDownloadsInput.value = 3;
-          
-          maxDownloadsInput.addEventListener('input', () => {
-            const value = parseInt(maxDownloadsInput.value);
-            validateMaxDownloads();
-          });
-          
-          maxDownloadsInput.addEventListener('blur', validateMaxDownloads);
-        }
+
         
         finishBtn.addEventListener('click', async () => {
-          if (!validateMaxDownloads()) {
-            return;
-          }
-          
           const ramMin = setupSlider.getMinValue();
           const ramMax = setupSlider.getMaxValue();
           const performanceMode = document.querySelector("#setup-performance-mode").checked;
-          const maxDownloads = maxDownloadsInput ? parseInt(maxDownloadsInput.value) || 3 : 3;
+          
+          // Obtener idioma seleccionado
+          const selectedLanguageOption = document.querySelector('.setup-language-option.selected');
+          const selectedLanguageCode = selectedLanguageOption ? 
+            selectedLanguageOption.dataset.language : 
+            (this.selectedSetupLanguage || 'es-ES');
           
           document.querySelector('.setup-modal').style.display = 'none';
           
@@ -655,6 +732,7 @@ class Launcher {
             terms_accepted: false,
             termsAcceptedDate: null,
             discord_token: null,
+            language: selectedLanguageCode,
             java_config: {
               java_path: null,
               java_memory: {
@@ -669,7 +747,6 @@ class Launcher {
               },
             },
             launcher_config: {
-              download_multi: maxDownloads,
               theme: "auto",
               closeLauncher: selectedLauncherBehavior,
               intelEnabledMac: true,
@@ -678,12 +755,22 @@ class Launcher {
             },
           });
           
+          console.log(`Configuración inicial completada con idioma: ${selectedLanguageCode}`);
+          
+          // Establecer el idioma definitivamente en el sistema de localización
+          try {
+            await localization.changeLanguage(selectedLanguageCode);
+            console.log(`Idioma establecido definitivamente: ${selectedLanguageCode}`);
+          } catch (error) {
+            console.error("Error estableciendo idioma final:", error);
+          }
+          
           if (performanceMode) {
             setPerformanceMode(true);
           }
           resolve();
         });
-      }, 200);
+      }, 500);
     });
   }
 
@@ -736,22 +823,41 @@ class Launcher {
   }
 
   async initWindow() {
+    // Configurar FileLogger y ConsoleWindow para los loggers
+    const fileLogger = {
+      log: (level, ...args) => {
+        ipcRenderer.send('log-message', {
+          level: level,
+          args: args,
+          timestamp: new Date(),
+          identifier: 'Launcher'
+        });
+      }
+    };
+
+    const consoleWindow = {
+      isReady: () => true,
+      sendLog: (logData) => {
+        ipcRenderer.send('log-message', logData);
+      }
+    };
+
     window.logger2 = {
-      launcher: new Logger2("Launcher", "#FF7F18"),
-      minecraft: new Logger2("Minecraft", "#43B581"),
+      launcher: new Logger2("Launcher", "#FF7F18", fileLogger, consoleWindow),
+      minecraft: new Logger2("Minecraft", "#43B581", fileLogger, consoleWindow),
     };
 
     this.initLogs();
 
     let hwid = await getHWID();
-    let hwidConsoleLabel = document.querySelector(".console-hwid");
-    hwidConsoleLabel.innerHTML = hwid;
     
-    let hwidCopyButton = document.querySelector(".copy-console-hwid");
-    hwidCopyButton.addEventListener("click", () => {
-      navigator.clipboard.writeText(hwid);
+    // Enviar HWID a la consola separada
+    ipcRenderer.send('log-message', {
+      level: 'info',
+      args: [`ID de soporte: ${hwid}`],
+      timestamp: new Date(),
+      identifier: 'System'
     });
-
 
     window.console = window.logger2.launcher;
 
@@ -793,8 +899,12 @@ class Launcher {
     
     ipcRenderer.on('process-cleanup-queue', async () => {
       console.log('Processing cleanup queue before app close...');
-      await cleanupManager.processQueue();
-      cleanupManager.stopAllLogWatchers();
+      try {
+        await cleanupManager.processQueue();
+        console.log('Cleanup queue processed successfully');
+      } catch (error) {
+        console.error('Error processing cleanup queue:', error);
+      }
     });
     
     console.info(`Versión del Launcher: ${pkg.version}${pkg.sub_version ? `-${pkg.sub_version}` : ''}`);
@@ -880,9 +990,24 @@ class Launcher {
     if (!configClient) {
       console.log("No existe configuración. Se utilizará la configuración inicial.");
       return false;
-    } else if (configClient.terms_accepted === undefined) {
-      configClient.terms_accepted = false;
-      await this.db.updateData("configClient", configClient);
+    } else {
+      let needsUpdate = false;
+      
+      if (configClient.terms_accepted === undefined) {
+        configClient.terms_accepted = false;
+        needsUpdate = true;
+      }
+      
+      // Añadir campo de idioma si no existe
+      if (!('language' in configClient)) {
+        configClient.language = 'auto';
+        needsUpdate = true;
+        console.log("Campo 'language' añadido a configClient");
+      }
+      
+      if (needsUpdate) {
+        await this.db.updateData("configClient", configClient);
+      }
     }
     return true;
   }
@@ -938,10 +1063,10 @@ class Launcher {
         token = null;
         let discordDialog = new popup();
         
-        const promptTitle = token ? "Error de autenticación" : "Verificación de Discord";
+        const promptTitle = token ? localization.t('verification.discord_authentication_error') : localization.t('verification.discord_verification');
         const promptContent = token 
-          ? "No se ha podido verificar la sesión de Discord. <br><br>¿Quieres volver a intentarlo?"
-          : "Para poder acceder al launcher debes iniciar sesión con tu cuenta de Discord y estar en el servidor de Pyro Network. <br><br>¿Quieres iniciar sesión ahora?";
+          ? localization.t('verification.discord_authentication_error_info')
+          : localization.t('verification.discord_verification_info');
         
         const dialogResult = await new Promise((resolve) => {
           discordDialog.openDialog({
@@ -960,8 +1085,8 @@ class Launcher {
         try {
           let connectingPopup = new popup();
           connectingPopup.openPopup({
-            title: 'Verificación de Discord',
-            content: 'Esperando a la autorización...',
+            title: localization.t('verification.discord_verification'),
+            content: localization.t('verification.discord_waiting'),
             color: 'var(--color)'
           });
           
@@ -978,8 +1103,8 @@ class Launcher {
           let errorDialog = new popup();
           const retryResult = await new Promise((resolve) => {
             errorDialog.openDialog({
-              title: "Error al verificar la cuenta de Discord",
-              content: "No se ha podido verificar la cuenta de Discord. <br><br>¿Quieres intentarlo de nuevo?",
+              title: localization.t('verification.discord_verification_error'),
+              content: localization.t('verification.discord_verification_error_info'),
               options: true,
               callback: resolve,
             });
@@ -1010,8 +1135,8 @@ class Launcher {
       
       let verifyPopup = new popup();
       verifyPopup.openPopup({
-        title: "Verificando cuenta de Discord...",
-        content: "Por favor, espera un momento...",
+        title: localization.t('verification.discord_verifying'),
+        content: localization.t('verification.please_wait'),
         color: "var(--color)",
         background: false,
       });
@@ -1028,8 +1153,8 @@ class Launcher {
         let errorDialog = new popup();
         const retryResult = await new Promise((resolve) => {
           errorDialog.openDialog({
-            title: "Error de conexión",
-            content: "No se ha podido verificar la membresía en el servidor de Discord. <br><br>¿Quieres intentarlo de nuevo?",
+            title: localization.t('verification.discord_verification_error'),
+            content: localization.t('verification.discord_membership_error_info'),
             options: true,
             callback: resolve,
           });
@@ -1048,11 +1173,31 @@ class Launcher {
       verifyPopup.closePopup();
 
       if (!isMember) {
+        //si pkg.discord_url no está vacio o es null mostrar el popup de unirse al servidor
+        if (!pkg.discord_url || pkg.discord_url === "") {
+        let errorDialog = new popup();
+        const retryResult = await new Promise((resolve) => {
+          errorDialog.openDialog({
+            title: localization.t('verification.discord_verification_error'),
+            content: localization.t('verification.discord_membership_missing'),
+            options: true,
+            callback: resolve,
+          });
+        });
+        if (retryResult === "cancel") {
+          quitAPP();
+          return;
+        } else {
+          token = null;
+          await deleteDiscordToken();
+          continue;
+        }
+      } else {
         let joinServerDialog = new popup();
         const joinResult = await new Promise((resolve) => {
           joinServerDialog.openDialog({
-            title: "Error al verificar la cuenta de Discord",
-            content: "No se ha detectado que seas miembro del servidor de Discord. Para poder utilizar el launcher debes ser miembro del servidor. <br><br>¿Quieres unirte ahora? Se abrirá una ventana en tu navegador.",
+            title: localization.t('verification.discord_verification_error'),
+            content: localization.t('verification.discord_membership_missing_with_invite'),
             options: true,
             callback: resolve,
           });
@@ -1067,6 +1212,7 @@ class Launcher {
           await deleteDiscordToken();
           continue;
         }
+      }
       } else {
         verificationComplete = true;
         
@@ -1222,7 +1368,7 @@ class Launcher {
             <div class="add-profile">
                 <div class="icon-account-add"></div>
             </div>
-            <div class="add-text-profile">Añadir una cuenta</div>
+            <div class="add-text-profile" data-translate="accounts.add_account">${localization.t('accounts.add_account')}</div>
         `;
         
         // Apply button style
@@ -1259,18 +1405,13 @@ class Launcher {
                         
                         popupRefresh.closePopup();
                         let popupError = new popup();
-                        
-                        await new Promise(resolve => {
                             popupError.openPopup({
-                                title: 'Cuenta protegida',
-                                content: 'Esta cuenta está protegida y no puede ser usada en este dispositivo. Por favor, contacta con el administrador si crees que esto es un error.',
+                                title: localization.t('login.protected_account'),
+                                content: localization.t('login.protected_account_info'),
                                 color: 'red',
-                                options: {
-                                    value: "Entendido",
-                                    event: resolve
-                                }
+                                options: true,
                             });
-                        });
+                        return;
                     }
                 }
               }
@@ -1290,8 +1431,6 @@ class Launcher {
         
         // Filtrar cuentas nulas o inválidas antes de procesarlas
         accounts = accounts.filter(acc => acc && typeof acc === 'object' && acc.ID !== undefined);
-        console.log(`Cuentas válidas después de filtrado: ${accounts.length}`);
-        
         // Si después del filtrado no hay cuentas, redireccionar al login
         if (accounts.length === 0) {
             configClient.account_selected = null;
@@ -1325,126 +1464,82 @@ class Launcher {
                 continue;
             }
             
-            if (account.meta.type === "Xbox") {
+            if (account.meta.type === "Xbox" || account.meta.type === "Microsoft") {
               console.log(`Plataforma: ${account.meta.type} | Usuario: ${account.name}`);
                 popupRefresh.openPopup({
-                  title: "Conectando...",
-                  content: `Plataforma: ${account.meta.type} | Usuario: ${account.name}`,
+                  title: localization.t('launcher.connecting'),
+                  content: `${localization.t('refresh.platform')}: ${account.meta.type} | ${localization.t('refresh.user')}: ${account.name}`,
                   color: "var(--color)",
                   background: false,
                 });
                 
                 try {
-                    let refresh_accounts = await new Microsoft(this.config.client_id).refresh(account);
-                    if (refresh_accounts.error) {
-                      await this.db.deleteData("accounts", account_ID);
-                      if (account_ID == account_selected) {
-                        configClient.account_selected = null;
-                        await this.db.updateData("configClient", configClient);
-                      }
-                      console.error(`[Account] ${account.name}: ${refresh_accounts.errorMessage || "Error desconocido"}`);
-                      continue;
-                    }
-                    
-                    if (!refresh_accounts || !refresh_accounts.name) {
-                        console.error(`[Account] ${account.name}: La actualización devolvió datos incompletos`);
-                        continue;
-                    }
-                    
-                    refresh_accounts.ID = account_ID;
-                    await this.db.updateData("accounts", refresh_accounts, account_ID);
-                    // Agregar la cuenta actualizada al array de cuentas refrescadas
-                    refreshedAccounts.push(refresh_accounts);
-                    
-                    if (account_ID == account_selected) {
-                      // Solo seleccionar la cuenta pero no agregar visualmente aquí
-                      clickableHead();
-                      await setUsername(refresh_accounts.name);
-                      await loginMSG();
+                    // Use new msmc refresh system
+                    if (account.refresh_token) {
+                        const authManager = new Auth("select_account");
+                        const xboxManager = await authManager.refresh(account.refresh_token);
+                        const minecraftAuth = await xboxManager.getMinecraft();
+                        
+                        const refresh_accounts = {
+                            access_token: minecraftAuth.mcToken,
+                            client_token: null,
+                            uuid: minecraftAuth.profile.id,
+                            name: minecraftAuth.profile.name,
+                            user_properties: "{}",
+                            meta: {
+                                type: account.meta.type,
+                                demo: minecraftAuth.profile.demo || false
+                            },
+                            refresh_token: xboxManager.save(),
+                            profile: minecraftAuth.profile,
+                            ID: account_ID
+                        };
+                        
+                        await this.db.updateData("accounts", refresh_accounts, account_ID);
+                        refreshedAccounts.push(refresh_accounts);
+                        
+                        if (account_ID == account_selected) {
+                          clickableHead();
+                          await setUsername(refresh_accounts.name);
+                          await loginMSG();
+                        }
+                    } else {
+                        // Fallback: account needs re-authentication
+                        console.warn(`Account ${account.name} missing refresh token, keeping original data`);
+                        refreshedAccounts.push(account);
                     }
                 } catch (error) {
-                    console.error(`Error al refrescar cuenta ${account.name}:`, error);
-                    // Agregar la cuenta original si falla la actualización
+                    console.error(`Error refreshing Microsoft account ${account.name}:`, error);
+                    
+                    // Try to handle msmc errors gracefully
+                    try {
+                        const { wrapError } = require('msmc').assets;
+                        const wrappedError = wrapError(error);
+                        console.error(`Wrapped error: ${wrappedError.message}`);
+                        
+                        // If refresh fails, remove the account or mark for re-authentication
+                        if (wrappedError.name.includes('auth')) {
+                            await this.db.deleteData("accounts", account_ID);
+                            if (account_ID == account_selected) {
+                                configClient.account_selected = null;
+                                await this.db.updateData("configClient", configClient);
+                            }
+                            console.error(`[Account] ${account.name}: Authentication expired, account removed`);
+                            continue;
+                        }
+                    } catch (wrapErr) {
+                        console.warn('Could not wrap msmc error:', wrapErr);
+                    }
+                    
+                    // Keep original account data if refresh fails for other reasons
                     refreshedAccounts.push(account);
                     continue;
                 }
-            } else if (account.meta.type == "Microsoft") {
-              console.log(`Plataforma: Microsoft | Usuario: ${account.name}`);
-                popupRefresh.openPopup({
-                  title: "Conectando...",
-                  content: `Plataforma: Microsoft | Usuario: ${account.name}`,
-                  color: "var(--color)",
-                  background: false,
-                });
-                
-                const serverConfig = await config.GetConfig();
-                if (serverConfig.protectedUsers && typeof serverConfig.protectedUsers === 'object') {
-                  const hwid = await getHWID();
-                  
-                  if (serverConfig.protectedUsers[account.name]) {
-                    const allowedHWIDs = serverConfig.protectedUsers[account.name];
-                    
-                    if (Array.isArray(allowedHWIDs) && !allowedHWIDs.includes(hwid)) {
-                      await this.db.deleteData("accounts", account_ID);
-                      if (account_ID == account_selected) {
-                        configClient.account_selected = null;
-                        await this.db.updateData("configClient", configClient);
-                      }
-                      
-                      popupRefresh.closePopup();
-                      let popupError = new popup();
-                      popupError.openPopup({
-                        title: 'Cuenta protegida',
-                        content: 'Esta cuenta está protegida y no puede ser usada en este dispositivo. Por favor, contacta con el administrador si crees que esto es un error.',
-                        color: 'red',
-                        options: true
-                      });
-                      
-                      await verificationError(account.name, true);
-                      continue;
-                    }
-                  }
-                }
-                
-                try {
-                    let refresh_accounts = await new Microsoft(this.config.client_id).refresh(account);
-                    if (refresh_accounts.error) {
-                      await this.db.deleteData("accounts", account_ID);
-                      if (account_ID == account_selected) {
-                        configClient.account_selected = null;
-                        await this.db.updateData("configClient", configClient);
-                      }
-                      console.error(`[Account] ${account.name}: ${refresh_accounts.errorMessage || "Error desconocido"}`);
-                      continue;
-                    }
-                    
-                    if (!refresh_accounts || !refresh_accounts.name) {
-                        console.error(`[Account] ${account.name}: La actualización devolvió datos incompletos`);
-                        continue;
-                    }
-                    
-                    refresh_accounts.ID = account_ID;
-                    await this.db.updateData("accounts", refresh_accounts, account_ID);
-                    // Agregar la cuenta actualizada al array de cuentas refrescadas
-                    refreshedAccounts.push(refresh_accounts);
-                    
-                    if (account_ID == account_selected) {
-                      // Solo seleccionar la cuenta pero no agregar visualmente aquí
-                      clickableHead();
-                      await setUsername(refresh_accounts.name);
-                      await loginMSG();
-                    }
-                } catch (error) {
-                    console.error(`Error al refrescar cuenta ${account.name}:`, error);
-                    // Agregar la cuenta original si falla la actualización
-                    refreshedAccounts.push(account);
-                    continue;
-                }
-            } else if (account.meta.type == "AZauth") {
+            } else if (account.meta.type == "azauth") {
               console.log(`Plataforma: MKNetworkID | Usuario: ${account.name}`);
               popupRefresh.openPopup({
-                title: "Conectando...",
-                content: `Plataforma: MKNetworkID | Usuario: ${account.name}`,
+                title: localization.t('launcher.connecting'),
+                content: `${localization.t('refresh.platform')}: MKNetworkID | ${localization.t('refresh.user')}: ${account.name}`,
                 color: "var(--color)",
                 background: false,
               });
@@ -1466,8 +1561,8 @@ class Launcher {
                     popupRefresh.closePopup();
                     let popupError = new popup();
                     popupError.openPopup({
-                      title: 'Cuenta protegida',
-                      content: 'Esta cuenta está protegida y no puede ser usada en este dispositivo. Por favor, contacta con el administrador si crees que esto es un error.',
+                      title: localization.t('login.protected_account'),
+                      content: localization.t('login.protected_account_info'),
                       color: 'red',
                       options: true
                     });
@@ -1478,42 +1573,28 @@ class Launcher {
                 }
               }
               
-              let refresh_accounts = await new AZauth(this.config.online).verify(account);
-              if (refresh_accounts.error) {
-                await this.db.deleteData("accounts", account_ID);
-                if (account_ID == account_selected) {
-                  configClient.account_selected = null;
-                  await this.db.updateData("configClient", configClient);
-                }
-                console.error(`[Account] ${account.name}: ${refresh_accounts.message}`);
-                continue;
-              }
-              refresh_accounts.ID = account_ID;
-              await this.db.updateData("accounts", refresh_accounts, account_ID);
-              // Agregar la cuenta actualizada al array de cuentas refrescadas
-              refreshedAccounts.push(refresh_accounts);
-              
-              if (account_ID == account_selected) {
-                // Solo seleccionar la cuenta pero no agregar visualmente aquí
-                clickableHead();
-                await setUsername(account.name);
-                await loginMSG();
-              }
-            } else if (account.meta.type == "Mojang") {
-              console.log(`Plataforma: ${account.meta.type} | Usuario: ${account.name}`);
-              popupRefresh.openPopup({
-                title: "Conectando...",
-                content: `Plataforma: ${account.meta.type} | Usuario: ${account.name}`,
-                color: "var(--color)",
-                background: false,
-              });
-              if (account.meta.online == false) {
-                let refresh_accounts = await Mojang.login(account.name);
-  
-                refresh_accounts.ID = account_ID;
+              try {
+                let AZauthClient = new AZauth(this.config.online);
+                let refresh_accounts = await AZauthClient.verify(account.access_token);
+                
+                // Transform response to match expected format
+                const refreshedAccount = {
+                  ID: account_ID,
+                  name: refresh_accounts.user.name,
+                  uuid: refresh_accounts.user.uuid,
+                  access_token: account.access_token, // Keep existing token
+                  refresh_token: account.refresh_token, // Keep existing token
+                  meta: {
+                    type: 'azauth',
+                    demo: false,
+                    ...refresh_accounts.meta
+                  },
+                  user: refresh_accounts.user
+                };
+                
+                await this.db.updateData("accounts", refreshedAccount, account_ID);
                 // Agregar la cuenta actualizada al array de cuentas refrescadas
-                refreshedAccounts.push(refresh_accounts);
-                await this.db.updateData("accounts", refresh_accounts, account_ID);
+                refreshedAccounts.push(refreshedAccount);
                 
                 if (account_ID == account_selected) {
                   // Solo seleccionar la cuenta pero no agregar visualmente aquí
@@ -1521,13 +1602,129 @@ class Launcher {
                   await setUsername(account.name);
                   await loginMSG();
                 }
-                continue;
-              } else {
-                // Para cuentas Mojang que no son offline
+              } catch (error) {
+                console.error(`[Account] ${account.name}: ${error.message}`);
+                
+                // Try to refresh the token if verification failed
+                if (account.refresh_token) {
+                  try {
+                    let AZauthClient = new AZauth(this.config.online);
+                    let tokenRefresh = await AZauthClient.refresh(account.refresh_token);
+                    
+                    // Update account with new tokens
+                    const refreshedAccount = {
+                      ...account,
+                      access_token: tokenRefresh.access_token,
+                      refresh_token: tokenRefresh.refresh_token
+                    };
+                    
+                    await this.db.updateData("accounts", refreshedAccount, account_ID);
+                    refreshedAccounts.push(refreshedAccount);
+                    
+                    if (account_ID == account_selected) {
+                      clickableHead();
+                      await setUsername(account.name);
+                      await loginMSG();
+                    }
+                  } catch (refreshError) {
+                    console.error(`[Account] ${account.name}: Token refresh failed: ${refreshError.message}`);
+                    
+                    // Remove account if refresh fails
+                    await this.db.deleteData("accounts", account_ID);
+                    if (account_ID == account_selected) {
+                      configClient.account_selected = null;
+                      await this.db.updateData("configClient", configClient);
+                    }
+                    continue;
+                  }
+                } else {
+                  // Remove account if no refresh token
+                  await this.db.deleteData("accounts", account_ID);
+                  if (account_ID == account_selected) {
+                    configClient.account_selected = null;
+                    await this.db.updateData("configClient", configClient);
+                  }
+                  continue;
+                }
+              }
+            } else if (account.meta.type == "Mojang") {
+              console.log(`Plataforma: ${account.meta.type} | Usuario: ${account.name}`);
+              popupRefresh.openPopup({
+                title: localization.t('launcher.connecting'),
+                content: `${localization.t('refresh.platform')}: ${account.meta.type} | ${localization.t('refresh.user')}: ${account.name}`,
+                color: "var(--color)",
+                background: false,
+              });
+              
+              try {
+                if (account.meta.online == false || account.meta.offline) {
+                  // Use minecraft-launcher-core for offline accounts
+                  let refresh_accounts;
+                  
+                  // Ensure username is within Minecraft's 16-character limit
+                  let validUsername = account.name;
+                  if (validUsername && validUsername.length > 16) {
+                    validUsername = validUsername.substring(0, 16);
+                    console.warn(`Offline account username truncated from "${account.name}" to "${validUsername}" (Minecraft 16-char limit)`);
+                  }
+                  
+                  // Check if getAuth returns a Promise
+                  const authResult = Authenticator.getAuth(validUsername);
+                  if (authResult && typeof authResult.then === 'function') {
+                    refresh_accounts = await authResult;
+                  } else {
+                    refresh_accounts = authResult;
+                  }
+                  
+                  // Ensure the returned auth object also has the correct username
+                  if (refresh_accounts && refresh_accounts.name && refresh_accounts.name.length > 16) {
+                    refresh_accounts.name = refresh_accounts.name.substring(0, 16);
+                    console.warn(`Auth object name truncated to: ${refresh_accounts.name}`);
+                  }
+                  
+                  // Ensure the account has the required properties
+                  if (!refresh_accounts || !refresh_accounts.name) {
+                    console.error(`Failed to refresh offline account: ${account.name}`);
+                    // Keep the original account if refresh fails, but ensure name is valid
+                    const fallbackAccount = { ...account };
+                    if (fallbackAccount.name && fallbackAccount.name.length > 16) {
+                      fallbackAccount.name = fallbackAccount.name.substring(0, 16);
+                    }
+                    refreshedAccounts.push(fallbackAccount);
+                    continue;
+                  }
+                  
+                  refresh_accounts.ID = account_ID;
+                  refresh_accounts.meta = {
+                      type: "Mojang",
+                      offline: true
+                  };
+                  
+                  // Ensure the final account name is also valid
+                  if (refresh_accounts.name && refresh_accounts.name.length > 16) {
+                    refresh_accounts.name = refresh_accounts.name.substring(0, 16);
+                    console.warn(`Final refresh account name truncated to: ${refresh_accounts.name}`);
+                  }
+                  
+                  refreshedAccounts.push(refresh_accounts);
+                  await this.db.updateData("accounts", refresh_accounts, account_ID);
+                  
+                  if (account_ID == account_selected) {
+                    clickableHead();
+                    await setUsername(refresh_accounts.name); // Use the validated name
+                    await loginMSG();
+                  }
+                } else {
+                  // For online Mojang accounts (legacy)
+                  refreshedAccounts.push(account);
+                }
+              } catch (error) {
+                console.error(`Error refreshing Mojang account ${account.name}:`, error);
+                // Keep the original account if refresh fails
                 refreshedAccounts.push(account);
               }
             } else {
-              // Para otros tipos de cuentas no manejadas específicamente
+              // For other account types
               refreshedAccounts.push(account);
             }
         }
@@ -1556,10 +1753,18 @@ class Launcher {
             );
             
             if (!accountExists) {
-                console.warn(`La cuenta seleccionada ID:${account_selected} ya no existe, eligiendo primera cuenta disponible`);
-                account_selected = refreshedAccounts[0].ID;
-                configClient.account_selected = account_selected;
-                await this.db.updateData("configClient", configClient);
+                console.warn(`La cuenta seleccionada ID:${account_selected} ya no existe`);
+                if (refreshedAccounts.length > 0) {
+                    console.log(`Eligiendo primera cuenta disponible: ${refreshedAccounts[0].name} (ID: ${refreshedAccounts[0].ID})`);
+                    account_selected = refreshedAccounts[0].ID;
+                    configClient.account_selected = account_selected;
+                    await this.db.updateData("configClient", configClient);
+                } else {
+                    console.log("No hay cuentas disponibles, limpiando selección");
+                    account_selected = null;
+                    configClient.account_selected = null;
+                    await this.db.updateData("configClient", configClient);
+                }
             }
         }
         
@@ -1651,7 +1856,7 @@ class Launcher {
                 clickableHead();
                 await setUsername(refreshedAccounts[0].name);
             }
-        } else if (account_selected) {
+        } else if (account_selected && refreshedAccounts.length > 0) {
             // Asegurar que la cuenta seleccionada exista
             console.log(`Verificando cuenta seleccionada ID: ${account_selected}`);
             const selectedAccount = refreshedAccounts.find(acc => acc && String(acc.ID) === String(account_selected));
@@ -1674,7 +1879,13 @@ class Launcher {
         console.log(`Cuentas finales disponibles: ${refreshedAccounts.length}`);
         
         popupRefresh.closePopup();
-        changePanel("home");
+        
+        if (refreshedAccounts.length > 0) {
+            changePanel("home");
+        } else {
+            console.log("No hay cuentas después del refresco, redirigiendo a login");
+            changePanel("login");
+        }
     } else {
         // No hay cuentas desde el inicio
         if (configClient) {
@@ -1687,217 +1898,189 @@ class Launcher {
   }
 
   async initLogs() {
-    let logs = document.querySelector(".log-bg");
-    let logContent = document.querySelector(".logger .content");
-    let scrollToBottomButton = document.querySelector(".scroll-to-bottom");
-    let autoScroll = true;
-
+    // Configurar atajos de teclado para abrir la consola separada
     document.addEventListener("keydown", (e) => {
       if ((e.ctrlKey && e.shiftKey && e.keyCode == 73) || e.keyCode == 123) {
-        logs.classList.toggle("show");
+        // Abrir consola separada
+        ipcRenderer.send('console-window-toggle');
       }
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === 'Escape' && logs.classList.contains('show')) {
-        logs.classList.toggle("show");
+      if (e.key === 'Escape') {
+        // Cerrar consola separada si está abierta
+        ipcRenderer.send('console-window-close');
       }
     });
 
-    let close = document.querySelector(".log-close");
-    close.addEventListener("click", () => {
-      logs.classList.toggle("show");
+    // Configurar listeners para eventos de la consola desde app.js
+    ipcRenderer.on('report-issue-triggered', async () => {
+      await this.confirmReportIssue();
     });
 
-    logContent.addEventListener("scroll", () => {
-      // Calculamos si estamos cerca del final del scroll
-      const isNearBottom = logContent.scrollTop + logContent.clientHeight >= logContent.scrollHeight - 50;
-      
-      if (!isNearBottom) {
-        autoScroll = false;
-        scrollToBottomButton.classList.add("show");
-      } else {
-        autoScroll = true;
-        scrollToBottomButton.classList.remove("show");
+    ipcRenderer.on('patch-toolkit-triggered', () => {
+      this.runPatchToolkit();
+    });
+
+    // Listener para enviar colores cuando la consola los solicite
+    ipcRenderer.on('send-colors-to-console', async () => {
+      console.log('Consola solicita colores dinámicos, reenviando...');
+      try {
+        // Releer los colores del servidor y enviarlos a la consola
+        await this.loadColors();
+      } catch (error) {
+        console.warn('Error reenviando colores a la consola:', error);
       }
     });
 
-    scrollToBottomButton.addEventListener("click", () => {
-      autoScroll = true;
-      logContent.scrollTo({
-        top: logContent.scrollHeight,
-        behavior: "smooth"
-      });
-      scrollToBottomButton.classList.remove("show");
-    });
-
-    // Inicialización del scrollToBottomButton para asegurar que tenga los estilos correctos
-    scrollToBottomButton.innerHTML = '<i class="fa-solid fa-arrow-down"></i>';
-    scrollToBottomButton.querySelector('i').style.fontSize = '24px';
-    
-    // Verificar si hay scroll al inicio y mostrar el botón si es necesario
-    setTimeout(() => {
-      if (logContent.scrollHeight > logContent.clientHeight) {
-        const isNearBottom = logContent.scrollTop + logContent.clientHeight >= logContent.scrollHeight - 50;
-        if (!isNearBottom) {
-          scrollToBottomButton.classList.add("show");
-        }
-      }
-    }, 500);
-
-    // Obtener referencias a botones y preparar tooltips
-    let patchToolkit = document.querySelector(".patch-toolkit");
-    let reportIssueButton = document.querySelector(".report-issue");
-    let copyButton = document.querySelector(".copy-console-hwid");
-
-    // Función para añadir tooltips
-    const addTooltip = (element, text) => {
-      let tooltip = null;
-      
-      element.addEventListener('mouseenter', () => {
-        tooltip = document.createElement('div');
-        tooltip.className = 'tooltip';
-        tooltip.innerText = text;
-        document.body.appendChild(tooltip);
-
-        const rect = element.getBoundingClientRect();
-        tooltip.style.left = rect.left - tooltip.offsetWidth - 10 + 'px';
-        tooltip.style.top = rect.top + (rect.height / 2) - (tooltip.offsetHeight / 2) + 'px';
+    // Listener para enviar configuración del servidor cuando la consola la solicite
+    ipcRenderer.on('send-server-config-to-console', async () => {
+      console.log('Consola solicita configuración del servidor, enviando...');
+      try {
+        const res = await config.GetConfig();
         
-        // Cambiar flecha al lado derecho
-        tooltip.style.setProperty('--tooltip-arrow-side', 'right');
+        const configForConsole = {
+          patchToolkit: res.patchToolkit === true // Solo true si es específicamente true
+        };
         
-        // Hacer que el tooltip sea visible
-        setTimeout(() => {
-          tooltip.style.opacity = '1';
-        }, 10);
-      });
-      
-      element.addEventListener('mouseleave', () => {
-        if (tooltip) {
-          tooltip.style.opacity = '0';
-          setTimeout(() => {
-            // Add null check before accessing parentNode
-            if (tooltip && tooltip.parentNode) {
-              tooltip.parentNode.removeChild(tooltip);
-            }
-            tooltip = null;
-          }, 200);
-        }
-      });
-    };
-
-    // Añadir tooltips a los botones
-    addTooltip(copyButton, "Copiar ID al portapapeles");
-    addTooltip(scrollToBottomButton, "Desplazar al final de los registros");
-    
-    // Configurar el botón de patch toolkit
-    let res = await config.GetConfig();
-    if (res.patchToolkit) {
-      patchToolkit.addEventListener("click", () => {
-        logs.classList.toggle("show");
-        this.runPatchToolkit();
-      });
-      addTooltip(patchToolkit, "Ejecutar Toolkit de Parches");
-    } else {
-      patchToolkit.style.display = "none";
-      // Adjust scroll button position when patch toolkit is hidden
-      scrollToBottomButton.style.bottom = "80px";
-    }
-
-    // Configurar el botón de reportar problema
-    reportIssueButton.classList.add("show");
-    reportIssueButton.addEventListener("click", () => {
-      logs.classList.toggle("show");
-      this.confirmReportIssue();
-    });
-    addTooltip(reportIssueButton, "Reportar un problema");
-
-    // Configurar eventos de logger
-    logger2.launcher.on("info", (...args) => {
-      addLog(logContent, "info", args);
-    });
-
-    logger2.launcher.on("warn", (...args) => {
-      addLog(logContent, "warn", args);
-    });
-
-    logger2.launcher.on("debug", (...args) => {
-      addLog(logContent, "debug", args);
-    });
-
-    logger2.launcher.on("error", (...args) => {
-      addLog(logContent, "error", args);
-    });
-
-    function addLog(content, type, args) {
-      let final = [];
-      for (let arg of args) {
-        if (typeof arg == "string") {
-          final.push(arg);
-        } else if (arg instanceof Error) {
-          final.push(arg.stack);
-        } else if (typeof arg == "object") {
-          final.push(JSON.stringify(arg));
-        } else {
-          final.push(arg);
-        }
+        ipcRenderer.send('apply-server-config', configForConsole);
+      } catch (error) {
+        console.warn('Error enviando configuración del servidor a la consola:', error);
+        // Enviar configuración por defecto (toolkit deshabilitado) en caso de error
+        ipcRenderer.send('apply-server-config', { patchToolkit: false });
       }
-      let span = document.createElement("span");
-      span.classList.add(type);
-      span.innerHTML = `${final.join(" ")}<br>`
-        .replace(/\x20/g, "&nbsp;")
-        .replace(/\n/g, "<br>");
+    });
 
-      content.appendChild(span);
-      if (autoScroll) {
-        content.scrollTop = content.scrollHeight;
-      } else if (content.scrollHeight > content.clientHeight) {
-        // Si no está en autoScroll y hay suficiente contenido para scroll, mostrar el botón
-        scrollToBottomButton.classList.add("show");
-      }
-    }
-
-    logContent.scrollTop = logContent.scrollHeight;
+    // Ya no necesitamos configurar la consola interna,
+    // todos los logs se envían automáticamente a la consola separada
+    console.log("Sistema de logs configurado para consola separada");
   }
 
   async confirmReportIssue() {
     let reportPopup = new popup();
-    let logs = document.querySelector(".log-bg");
     let dialogResult = await new Promise(resolve => {
       reportPopup.openDialog({
-            title: 'Enviar reporte de rendimiento?',
-            content: 'Si estas experimentando problemas con el launcher, puedes enviar un reporte de rendimiento para ayudarnos a solucionar el problema. <br><br>Quieres enviar un reporte de rendimiento?',
+            title: localization.t('mklib.report_prompt'),
+            content: localization.t('mklib.report_prompt_info'),
             options: true,
             callback: resolve
         });
     });
     if (dialogResult === 'cancel') {
-        logs.classList.toggle("show");
+        ipcRenderer.send('console-window-open');
         return;
     }
-    this.sendReport();
+    await this.sendReport();
   }
 
-  sendReport() {
-    let logContent = document.querySelector(".logger .content").innerText;
-    sendClientReport(logContent, false);
+  async sendReport() {
+    try {
+      // Obtener logs desde la consola separada
+      console.log("Solicitando logs de consola para reporte...");
+      const logContent = await ipcRenderer.invoke('get-console-logs');
+      
+      console.log("Respuesta de get-console-logs:", {
+        type: typeof logContent,
+        length: logContent ? logContent.length : 0,
+        preview: logContent ? logContent.substring(0, 100) : 'null',
+        isError: logContent && logContent.includes('Error al obtener logs'),
+        isNotAvailable: logContent && logContent.includes('No hay logs disponibles'),
+        isConsoleNotAvailable: logContent && logContent.includes('Consola no disponible')
+      });
+      
+      // Validar que el contenido de logs no esté vacío y sea válido
+      if (!logContent || 
+          logContent.trim() === '' || 
+          logContent === 'No hay logs disponibles' ||
+          logContent.includes('No hay logs disponibles en la consola') ||
+          logContent.includes('Consola no disponible')) {
+        
+        console.warn("No se encontraron logs válidos en la consola separada, intentando obtener desde archivo...");
+        console.warn("Razón:", logContent);
+        
+        // Intentar obtener logs desde el archivo del FileLogger
+        try {
+          const fileLogContent = await this.getFileLogContent();
+          console.log("Logs obtenidos desde archivo:", {
+            type: typeof fileLogContent,
+            length: fileLogContent ? fileLogContent.length : 0,
+            preview: fileLogContent ? fileLogContent.substring(0, 100) : 'null'
+          });
+          
+          if (fileLogContent && fileLogContent.trim() !== '' && 
+              !fileLogContent.includes('Archivo de log no encontrado') &&
+              !fileLogContent.includes('FileLogger no inicializado')) {
+            console.log("Logs obtenidos desde archivo exitosamente");
+            sendClientReport(fileLogContent, false);
+          } else {
+            console.warn("No se pudieron obtener logs desde archivo, usando información de diagnóstico");
+            const diagnosticInfo = `Error: No se pudieron obtener logs válidos para el reporte.
+            
+Información de diagnóstico:
+- Fecha: ${new Date().toISOString()}
+- Respuesta de consola: ${logContent}
+- Respuesta de archivo: ${fileLogContent}
+- User Agent: ${navigator.userAgent}
+- Versión del launcher: ${pkg.version}${pkg.sub_version ? `-${pkg.sub_version}` : ''}
+- Estado de la aplicación: ${document.readyState}
+- URL actual: ${window.location.href}`;
+            
+            sendClientReport(diagnosticInfo, false);
+          }
+        } catch (fileError) {
+          console.error("Error obteniendo logs desde archivo:", fileError);
+          const errorInfo = `Error al obtener logs: ${fileError.message}
+          
+Información de diagnóstico:
+- Fecha: ${new Date().toISOString()}
+- Error de consola: ${logContent}
+- Error de archivo: ${fileError.stack || fileError.message}
+- Versión del launcher: ${pkg.version}${pkg.sub_version ? `-${pkg.sub_version}` : ''}`;
+          
+          sendClientReport(errorInfo, false);
+        }
+      } else {
+        console.log("Logs obtenidos exitosamente desde consola separada");
+        sendClientReport(logContent, false);
+      }
+    } catch (error) {
+      console.error('Error obteniendo logs para el reporte:', error);
+      // Fallback: usar mensaje de error detallado
+      const errorMessage = `Error crítico al obtener logs: ${error.message}
+
+Stack trace: ${error.stack || 'No disponible'}
+Fecha: ${new Date().toISOString()}
+Tipo de error: ${error.name || 'Unknown'}
+Versión del launcher: ${pkg.version}${pkg.sub_version ? `-${pkg.sub_version}` : ''}
+User Agent: ${navigator.userAgent}`;
+      
+      sendClientReport(errorMessage, false);
+    }
   }
 
+  async getFileLogContent() {
+    try {
+      // Solicitar el contenido del archivo de log actual al proceso principal
+      const fileLogContent = await ipcRenderer.invoke('get-file-log-content');
+      return fileLogContent;
+    } catch (error) {
+      console.error('Error obteniendo contenido del archivo de log:', error);
+      return null;
+    }
+  }
   async runPatchToolkit() {
     let patchToolkitPopup = new popup();
-    let logs = document.querySelector(".log-bg");
     let dialogResult = await new Promise(resolve => {
       patchToolkitPopup.openDialog({
-            title: 'Ejecutar Toolkit de Parches?',
-            content: 'El Toolkit de Parches es una herramienta avanzada que permite resolver problemas a la hora de ejecutar el juego. <br>Ejecuta esta herramienta SOLO si tienes problemas para iniciar el juego.<br>Quieres ejecutar el Toolkit de Parches?<br>Si es así, se descargará y parcheará el juego de forma automática.',
+            title: localization.t('mklib.patch_toolkit_prompt'),
+            content: localization.t('mklib.patch_toolkit_prompt_info'),
             options: true,
             callback: resolve
         });
     });
     if (dialogResult === 'cancel') {
-      logs.classList.toggle("show");
-      return;
+        ipcRenderer.send('console-window-open');
+        return;
     }
     patchLoader();
   }
@@ -1913,7 +2096,7 @@ class Launcher {
     
     const settingsContainers = document.querySelectorAll('.container-settings');
     settingsContainers.forEach(container => {
-      container.style.transition = 'none';
+           container.style.transition = 'none';
       container.style.transform = 'none';
     });
     
@@ -1958,7 +2141,6 @@ class Launcher {
     }
 
     if (!config.launcher_config || 
-        !('download_multi' in config.launcher_config) ||
         !('theme' in config.launcher_config) ||
         !('closeLauncher' in config.launcher_config) ||
         !('intelEnabledMac' in config.launcher_config) ||
@@ -1968,7 +2150,166 @@ class Launcher {
       return false;
     }
 
+    // Verificar que existe el campo de idioma (puede ser undefined)
+    if (!('language' in config)) {
+      console.warn("Campo 'language' no existe en configClient, se agregará automáticamente");
+      config.language = 'auto';
+    }
+
     return true;
+  }
+
+  async setupLanguageSelector(defaultLanguage) {
+    try {
+      console.log("Configurando selector de idioma para configuración inicial");
+      
+      // Variable para tracking del idioma seleccionado
+      let selectedLanguage = defaultLanguage;
+      
+      // Asegurar que la propiedad de clase esté definida
+      this.selectedSetupLanguage = selectedLanguage;
+      
+      // Cargar idiomas disponibles si no están cargados
+      if (!localization.availableLanguages) {
+        await localization.loadAvailableLanguages();
+      }
+      
+      const languageOptionsContainer = document.querySelector('.setup-language-options');
+      if (!languageOptionsContainer) {
+        console.error("No se encontró el contenedor de opciones de idioma");
+        return;
+      }
+      
+      // Mapa de códigos de país para flagsapi.com (coincide con el de settings.js)
+      const languageCountryCodes = {
+        'es-ES': 'ES',
+        'en-EN': 'GB', // Inglés usa bandera británica
+        'fr-FR': 'FR',
+        'de-DE': 'DE',
+        'it-IT': 'IT',
+        'pt-BR': 'BR',
+        'pt-PT': 'PT',
+        'ru-RU': 'RU',
+        'ja-JP': 'JP',
+        'ko-KR': 'KR',
+        'zh-CN': 'CN',
+        'zh-TW': 'TW',
+        'pl-PL': 'PL',
+        'nl-NL': 'NL',
+        'sv-SE': 'SE',
+        'da-DK': 'DK',
+        'fi-FI': 'FI',
+        'no-NO': 'NO',
+        'cs-CZ': 'CZ',
+        'hu-HU': 'HU',
+        'tr-TR': 'TR',
+        'ar-SA': 'SA',
+        'he-IL': 'IL',
+        'th-TH': 'TH',
+        'vi-VN': 'VN',
+        'id-ID': 'ID',
+        'ms-MY': 'MY',
+        'uk-UA': 'UA',
+        'bg-BG': 'BG',
+        'ro-RO': 'RO',
+        'hr-HR': 'HR',
+        'sr-RS': 'RS',
+        'sl-SI': 'SI',
+        'sk-SK': 'SK',
+        'lt-LT': 'LT',
+        'lv-LV': 'LV',
+        'et-EE': 'EE'
+      };
+      
+      // Limpiar opciones existentes
+      languageOptionsContainer.innerHTML = '';
+      
+      // Obtener idiomas disponibles del sistema de localización
+      const availableLanguages = localization.getAvailableLanguages();
+      
+      // Si no hay idiomas disponibles, usar los básicos
+      const languagesToShow = Object.keys(availableLanguages).length > 0 
+        ? Object.keys(availableLanguages) 
+        : ['es-ES', 'en-EN', 'fr-FR', 'de-DE', 'it-IT', 'pt-PT', 'pt-BR'];
+      
+      // Crear opciones de idioma dinámicamente con banderas de flagsapi.com
+      languagesToShow.forEach(langCode => {
+        const langInfo = availableLanguages[langCode];
+        const countryCode = languageCountryCodes[langCode];
+        
+        // Usar información del idioma disponible o fallback
+        const displayName = langInfo ? langInfo.name : langCode;
+        const nativeName = langInfo ? langInfo.nativeName : langCode;
+        
+        const option = document.createElement('div');
+        option.className = 'setup-language-option';
+        option.dataset.language = langCode;
+        
+        if (langCode === defaultLanguage) {
+          option.classList.add('selected');
+        }
+        
+        // Crear contenido de la opción con bandera dinámica
+        const flagContent = countryCode 
+          ? `<img src="https://flagsapi.com/${countryCode}/flat/64.png" alt="${countryCode} flag" 
+                  style="width: 24px; height: 18px; border-radius: 3px; object-fit: cover;"
+                  onerror="this.style.display='none'; this.parentNode.innerHTML='🏳️';">`
+          : '🏳️'; // Fallback para idiomas sin código de país
+        
+        option.innerHTML = `
+          <div class="setup-language-flag">
+            ${flagContent}
+          </div>
+          <div class="setup-language-info">
+            <div class="setup-language-name">${displayName}</div>
+            <div class="setup-language-native">${nativeName}</div>
+          </div>
+        `;
+        
+        option.addEventListener('click', async () => {
+          // Actualizar propiedades de clase para mantener estado
+          this.selectedSetupLanguage = langCode;
+          
+          // Remover selección anterior
+          document.querySelectorAll('.setup-language-option').forEach(opt => {
+            opt.classList.remove('selected');
+          });
+          
+          // Seleccionar nueva opción
+          option.classList.add('selected');
+          selectedLanguage = langCode;
+          
+          // Cambiar idioma inmediatamente y aplicar traducciones
+          try {
+            console.log(`Cambiando idioma a ${langCode} durante configuración inicial`);
+            await localization.changeLanguage(langCode);
+            localization.forceApplyTranslations();
+            console.log("Traducciones aplicadas en configuración inicial");
+          } catch (error) {
+            console.error("Error al cambiar idioma durante configuración inicial:", error);
+          }
+        });
+        
+        languageOptionsContainer.appendChild(option);
+      });
+      
+      // Establecer el idioma seleccionado inicialmente
+      if (defaultLanguage) {
+        try {
+          console.log(`Estableciendo idioma inicial a ${defaultLanguage}`);
+          await localization.changeLanguage(defaultLanguage);
+          localization.forceApplyTranslations();
+          console.log("Idioma inicial establecido y traducciones aplicadas");
+        } catch (error) {
+          console.error("Error al establecer idioma inicial:", error);
+        }
+      }
+      
+      console.log("Selector de idioma configurado exitosamente con banderas dinámicas");
+      
+    } catch (error) {
+      console.error("Error configurando selector de idioma:", error);
+    }
   }
 }
 

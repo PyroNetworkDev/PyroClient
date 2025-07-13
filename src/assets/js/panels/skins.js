@@ -3,13 +3,12 @@
  * @license CC-BY-NC 4.0 - https://creativecommons.org/licenses/by-nc/4.0
  */
 
-import { config, database, changePanel, appdata, setStatus, popup, getUsername } from '../utils.js';
+import { config, database, changePanel, appdata, setStatus, popup, getUsername, localization } from '../utils.js';
 import { skin2D } from '../utils/skin.js';
 
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
-const { Microsoft } = require('minecraft-java-core');
 
 class Skins {
     static id = "skins";
@@ -146,7 +145,7 @@ class Skins {
         
         applyBtn.addEventListener('click', async () => {
             if (!this.currentSkin) {
-                this.showNotification('No hay ninguna skin seleccionada.', 'error');
+                this.showNotification(localization.t('skins.no_selected_skin_error'), 'error');
                 return;
             }
             
@@ -201,7 +200,7 @@ class Skins {
                     const emptyMessage = document.createElement('div');
                     emptyMessage.id = 'no-search-results';
                     emptyMessage.classList.add('empty-skins-message');
-                    emptyMessage.textContent = `No se encontraron skins con: "${searchInput.value}"`;
+                    emptyMessage.textContent = `${localization.t('skins.search_not_found')} "${searchInput.value}"`;
                     document.querySelector('.skins-list').appendChild(emptyMessage);
                 }
             } else if (noResultsMsg) {
@@ -236,7 +235,7 @@ class Skins {
             if (skinFiles.length === 0) {
                 const emptyMessage = document.createElement('div');
                 emptyMessage.classList.add('empty-skins-message');
-                emptyMessage.textContent = 'No hay skins guardadas. Sube tu primera skin.';
+                emptyMessage.textContent = localization.t('skins.no_skins_upload');
                 skinsList.appendChild(emptyMessage);
             }
             
@@ -252,7 +251,7 @@ class Skins {
             uploadBtn.classList.add('upload-skin-btn');
             uploadBtn.innerHTML = `
                 <i class="fas fa-upload"></i>
-                <span>Subir nueva skin</span>
+                <span>${localization.t("skins.upload_skin")}</span>
             `;
             
             // Configurar el evento click del botón aquí
@@ -293,7 +292,7 @@ class Skins {
             const deleteButton = document.createElement('div');
             deleteButton.classList.add('skin-delete-btn');
             deleteButton.innerHTML = '×';
-            deleteButton.title = 'Eliminar skin';
+            deleteButton.title = localization.t('skins.delete_skin');
             deleteButton.addEventListener('click', (e) => {
                 e.stopPropagation(); // Evitar que se seleccione la skin al eliminarla
                 this.confirmDeleteSkin(skinPath, skinName, skinItem);
@@ -330,8 +329,8 @@ class Skins {
         const confirmPopup = new popup();
         const result = await new Promise((resolve) => {
             confirmPopup.openDialog({
-                title: 'Eliminar skin',
-                content: `¿Estás seguro de que deseas eliminar la skin "${skinName}"?`,
+                title: localization.t('skins.delete_skin'),
+                content: `${localization.t("skins.delete_skin_confirm")} "${skinName}"?`,
                 options: true,
                 callback: (result) => {
                     resolve(result !== 'cancel');
@@ -366,7 +365,7 @@ class Skins {
                                 this.selectSkin(userSkinItem);
                             } else {
                                 // Si no se encuentra, restaurar la vista por defecto
-                                document.querySelector('.current-skin-name').textContent = 'Selecciona una skin';
+                                document.querySelector('.current-skin-name').textContent = localization.t('skins.select_skin');
                                 document.querySelector('.current-skin-details').textContent = '';
                                 this.currentSkin = null;
                                 
@@ -375,7 +374,7 @@ class Skins {
                             }
                         } else {
                             // Restaurar la vista por defecto
-                            document.querySelector('.current-skin-name').textContent = 'Selecciona una skin';
+                            document.querySelector('.current-skin-name').textContent = localization.t('skins.select_skin');
                             document.querySelector('.current-skin-details').textContent = '';
                             this.currentSkin = null;
                             
@@ -386,7 +385,7 @@ class Skins {
                 }, 300);
             } catch (error) {
                 console.error('Error al eliminar la skin:', error);
-                this.showNotification('Error al eliminar la skin.', 'error');
+                this.showNotification(localization.t("skins.delete_skin_error"), 'error');
             }
         }
     }
@@ -574,7 +573,7 @@ class Skins {
             
         } catch (error) {
             console.error('Error al seleccionar skin:', error);
-            this.showNotification('Error al cargar la skin.', 'error');
+            this.showNotification(localization.t('skins.loading_error'), 'error');
         }
     }
     
@@ -588,13 +587,13 @@ class Skins {
         try {
             // Validar que sea un archivo PNG
             if (!file.name.endsWith('.png')) {
-                this.showNotification('Solo se permiten archivos PNG.', 'error');
+                this.showNotification(localization.t('skins.upload_png_required'), 'error');
                 return;
             }
             
             // Validar tamaño del archivo (máx. 1MB)
             if (file.size > 1024 * 1024) {
-                this.showNotification('La skin es demasiado grande. Máximo 1MB.', 'error');
+                this.showNotification(localization.t('skins.upload_too_large'), 'error');
                 return;
             }
             
@@ -616,7 +615,7 @@ class Skins {
             
             // Verificar si ya existe
             if (fs.existsSync(skinFilePath)) {
-                this.showNotification(`Ya existe una skin con el nombre "${skinNameInput}". Por favor, usa otro nombre.`, 'error');
+                this.showNotification(localization.t('skins.upload_same_name'), 'error');
                 return;
             }
             
@@ -629,15 +628,15 @@ class Skins {
                     img.onload = async () => {
                         // Comprobar dimensiones válidas (64x64 o 64x32)
                         if (!((img.width === 64 && img.height === 64) || (img.width === 64 && img.height === 32))) {
-                            this.showNotification('Las dimensiones de la skin deben ser 64x64 o 64x32 píxeles.', 'error');
+                            this.showNotification(localization.t('skins.upload_size_error'), 'error');
                             return;
                         }
                         
                         // Mostrar indicador de carga
                         const loadingPopup = new popup();
                         loadingPopup.openPopup({
-                            title: 'Procesando skin',
-                            content: 'Guardando y configurando la skin...',
+                            title: localization.t('skins.processing_skin'),
+                            content: localization.t('skins.processing_skin_info'),
                             color: 'var(--color)',
                             background: false
                         });
@@ -684,34 +683,34 @@ class Skins {
                             }
                             
                             loadingPopup.closePopup();
-                            this.showNotification('Skin subida correctamente.', 'success');
+                            this.showNotification(localization.t('skins.upload_success'), 'success');
                         } catch (error) {
                             console.error('Error al guardar la skin:', error);
                             loadingPopup.closePopup();
-                            this.showNotification(`Error al guardar la skin: ${error.message}`, 'error');
+                            this.showNotification(`${localization.t('skins.upload_error')} ${error.message}`, 'error');
                         }
                     };
                     
                     img.onerror = () => {
-                        this.showNotification('El archivo no es una imagen válida.', 'error');
+                        this.showNotification(localization.t('skins.upload_invalid_file'), 'error');
                     };
                     
                     img.src = e.target.result;
                 } catch (error) {
                     console.error('Error al procesar la skin:', error);
-                    this.showNotification(`Error al procesar la skin: ${error.message}`, 'error');
+                    this.showNotification(`${localization.t('skins.loading_error')}: ${error.message}`, 'error');
                 }
             };
             
             reader.onerror = () => {
-                this.showNotification('Error al leer el archivo.', 'error');
+                this.showNotification(localization.t('skins.read_error'), 'error');
             };
             
             reader.readAsDataURL(file);
             
         } catch (error) {
             console.error('Error al subir skin:', error);
-            this.showNotification(`Error al subir la skin: ${error.message}`, 'error');
+            this.showNotification(`${localization.t('skins.upload_error')} ${error.message}`, 'error');
         }
     }
     
@@ -726,17 +725,17 @@ class Skins {
             
             modalContent.innerHTML = `
                 <div class="skin-name-modal-header">
-                    <h3>Nombre de la skin</h3>
+                    <h3>${localization.t('skins.skin_name')}</h3>
                 </div>
                 <div class="skin-name-modal-body">
-                    <p>Introduce un nombre para la skin (máx. 16 caracteres):</p>
+                    <p>${localization.t('skins.skin_name_description')}</p>
                     <input type="text" id="skin-name-input" value="${defaultName}" 
                            class="skin-name-input" autocomplete="off" maxlength="16">
-                    <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 8px;">El nombre ayudará a identificar tu skin en la biblioteca.</small>
+                    <small style="color: rgba(255,255,255,0.6); display: block; margin-top: 8px;">${localization.t('skins.skin_name_tip')}</small>
                 </div>
                 <div class="skin-name-modal-footer">
-                    <button class="skin-name-cancel-btn">Cancelar</button>
-                    <button class="skin-name-confirm-btn">Aceptar</button>
+                    <button class="skin-name-cancel-btn">${localization.t('buttons.cancel')}</button>
+                    <button class="skin-name-confirm-btn">${localization.t('buttons.accept')}</button>
                 </div>
             `;
             
@@ -840,6 +839,18 @@ class Skins {
             return skinFilePath;
         } catch (error) {
             console.error('Error al guardar la skin de la URL:', error);
+            
+            // Fallback: guardar skin de Steve como respaldo
+            try {
+                const fallbackPath = await this.saveSteveFallback(name, model);
+                if (fallbackPath) {
+                    console.log('Skin de Steve guardada como fallback');
+                    return fallbackPath;
+                }
+            } catch (fallbackError) {
+                console.error('Error al guardar skin de Steve como fallback:', fallbackError);
+            }
+            
             return null;
         }
     }
@@ -874,6 +885,18 @@ class Skins {
             return skinFilePath;
         } catch (error) {
             console.error('Error al guardar la skin desde base64:', error);
+            
+            // Fallback: guardar skin de Steve como respaldo
+            try {
+                const fallbackPath = await this.saveSteveFallback(name, model);
+                if (fallbackPath) {
+                    console.log('Skin de Steve guardada como fallback');
+                    return fallbackPath;
+                }
+            } catch (fallbackError) {
+                console.error('Error al guardar skin de Steve como fallback:', fallbackError);
+            }
+            
             return null;
         }
     }
@@ -891,7 +914,7 @@ class Skins {
             const configClient = await this.db.readData('configClient');
             if (!configClient || !configClient.account_selected) {
                 console.log('No hay cuenta seleccionada en la configuración');
-                document.querySelector('.current-skin-name').textContent = 'No hay cuenta seleccionada';
+                document.querySelector('.current-skin-name').textContent = localization.t('skins.no_selected_account_error');
                 return;
             }
 
@@ -899,7 +922,7 @@ class Skins {
             const currentAccount = await this.db.readData('accounts', configClient.account_selected);
             if (!currentAccount) {
                 console.log('No se pudo encontrar la cuenta seleccionada');
-                document.querySelector('.current-skin-name').textContent = 'Cuenta no encontrada';
+                document.querySelector('.current-skin-name').textContent = localization.t('skins.no_account_found');
                 return;
             }
             
@@ -921,12 +944,12 @@ class Skins {
                         // Mostrar información de la skin actual con el modelo
                         document.querySelector('.current-skin-name').innerHTML = 
                             `Skin actual <span class="skin-model-indicator skin-model-${skinModel}">${skinModel}</span>`;
-                        document.querySelector('.current-skin-details').textContent = `Cuenta: ${currentAccount.name}`;
+                        document.querySelector('.current-skin-details').textContent = `${localization.t('skins.account')}: ${currentAccount.name}`;
                         
                         // Guardar la referencia de la skin actual
                         this.currentSkin = {
                             url: currentSkin.url,
-                            name: 'Skin actual',
+                            name: localization.t('skins.current_skin'),
                             id: currentSkin.id,
                             accountId: currentAccount.ID,
                             model: skinModel
@@ -945,12 +968,12 @@ class Skins {
                         
                         document.querySelector('.current-skin-name').innerHTML = 
                             `Skin actual <span class="skin-model-indicator skin-model-${skinModel}">${skinModel}</span>`;
-                        document.querySelector('.current-skin-details').textContent = `Cuenta: ${currentAccount.name}`;
+                        document.querySelector('.current-skin-details').textContent = `${localization.t('skins.account')}: ${currentAccount.name}`;
                         
                         this.currentSkin = {
                             dataUrl: skinDataUrl,
                             base64: currentSkin.base64,
-                            name: 'Skin actual',
+                            name: localization.t('skins.current_skin'),
                             id: currentSkin.id,
                             accountId: currentAccount.ID,
                             model: skinModel
@@ -983,12 +1006,12 @@ class Skins {
                         const skinModel = await this.detectSkinModel(minotarUrl);
                         
                         document.querySelector('.current-skin-name').innerHTML = 
-                            `Skin de Minecraft <span class="skin-model-indicator skin-model-${skinModel}">${skinModel}</span>`;
-                        document.querySelector('.current-skin-details').textContent = `Cuenta: ${username}`;
+                            `${localization.t('skins.minecraft_skin')} <span class="skin-model-indicator skin-model-${skinModel}">${skinModel}</span>`;
+                        document.querySelector('.current-skin-details').textContent = `${localization.t('skins.account')}: ${username}`;
                         
                         this.currentSkin = {
                             url: minotarUrl,
-                            name: `Skin de ${username}`,
+                            name: `${localization.t('skins.skin')} ${localization.t('misc.of')} ${username}`,
                             model: skinModel
                         };
                         
@@ -1030,7 +1053,7 @@ class Skins {
         try {
             this.skinViewer.loadSkin('assets/images/default/steve-skin.png');
             document.querySelector('.current-skin-name').textContent = 'Skin por defecto';
-            document.querySelector('.current-skin-details').textContent = `Cuenta: ${username || 'Desconocida'}`;
+            document.querySelector('.current-skin-details').textContent = `${localization.t('skins.account')}: ${username || localization.t('skins.unknown')}`;
             this.currentSkin = null;
         } catch (error) {
             console.error('Error al cargar skin por defecto:', error);
@@ -1042,30 +1065,30 @@ class Skins {
             // Obtener la cuenta actualmente seleccionada
             const configClient = await this.db.readData('configClient');
             if (!configClient || !configClient.account_selected) {
-                this.showNotification('No hay cuenta seleccionada.', 'error');
+                this.showNotification(localization.t('skins.no_selected_account_error'), 'error');
                 return;
             }
             
             const currentAccount = await this.db.readData('accounts', configClient.account_selected);
             if (!currentAccount) {
-                this.showNotification('No se pudo encontrar la cuenta seleccionada.', 'error');
+                this.showNotification(localization.t('skins.no_selected_account_found'), 'error');
                 return;
             }
             
             // Verificar que sea una cuenta de Microsoft/Xbox
             if (!currentAccount.meta || (currentAccount.meta.type !== 'Xbox' && currentAccount.meta.type !== 'Microsoft')) {
-                this.showNotification('Solo las cuentas de Xbox/Microsoft pueden cambiar de skin.', 'error');
+                this.showNotification(localization.t('skins.xbox_requirement'), 'error');
                 return;
             }
             
             // Crear popup de carga interactivo
             const loadingPopup = new popup();
             loadingPopup.openPopup({
-                title: 'Aplicando skin',
+                title: localization.t('skins.applying_skin'),
                 content: `<div class="skin-apply-progress">
-                    <div class="progress-step active" data-step="1">Preparando skin</div>
-                    <div class="progress-step" data-step="2">Conectando con los servicios</div>
-                    <div class="progress-step" data-step="3">Aplicando cambios</div>
+                    <div class="progress-step active" data-step="1">${localization.t('skins.preparing_skin')}</div>
+                    <div class="progress-step" data-step="2">${localization.t('skins.connecting_to_service')}</div>
+                    <div class="progress-step" data-step="3">${localization.t('skins.applying_changes')}</div>
                 </div>`,
                 color: 'var(--color)',
                 background: false,
@@ -1173,7 +1196,7 @@ class Skins {
                 loadingPopup.closePopup();
                 
                 // Mostrar mensaje de éxito
-                this.showNotification('¡Skin aplicada correctamente a tu cuenta de Minecraft!', 'success');
+                this.showNotification(localization.t('skins.apply_success'), 'success');
                 
                 // Actualizar la información de la skin actual en el visor
                 document.querySelector('.current-skin-name').textContent = skin.name || 'Skin personalizada';
@@ -1220,7 +1243,7 @@ class Skins {
         try {
             const popupInstance = new popup();
             popupInstance.openPopup({
-                title: type === 'error' ? 'Error' : type === 'success' ? 'Éxito' : 'Información',
+                title: type === 'error' ? localization.t('skins.error') : type === 'success' ? localization.t('skins.success') : localization.t('skins.information'),
                 content: message,
                 color: type === 'error' ? '#e21212' : type === 'success' ? '#4CAF50' : 'var(--color)',
                 options: true
@@ -1247,7 +1270,7 @@ class Skins {
             
             // Cerrar cualquier popup de carga que pueda estar abierto (como fallback)
             document.querySelectorAll('.popup-window, .popup').forEach(popup => {
-                if (popup.textContent && popup.textContent.includes('Aplicando skin')) {
+                if (popup.textContent && popup.textContent.includes(localization.t('skins.applying_skin'))) {
                     try {
                         // Buscar el botón de cerrar y simulamos un clic
                         const closeBtn = popup.querySelector('.popup-btn, #okButton');
@@ -1268,20 +1291,12 @@ class Skins {
         } else if (error && error.message) {
             errorMessage = error.message;
         } else {
-            errorMessage = "Error desconocido al aplicar la skin";
+            errorMessage = localization.t('skins.apply_unknown_error');
         }
         
         // Mostrar error con formato mejorado
         this.showNotification(`❌ ${errorMessage}`, 'error');
         
-        // Reproducir sonido de error si está disponible
-        try {
-            const errorSound = new Audio('assets/sounds/error.mp3');
-            errorSound.volume = 0.5;
-            errorSound.play().catch(e => console.log('No se pudo reproducir sonido de error:', e));
-        } catch (soundError) {
-            // Ignorar errores de sonido
-        }
     }
     
     async updateAccountInfo() {
@@ -1289,25 +1304,25 @@ class Skins {
             // Obtener la configuración del cliente para obtener la cuenta seleccionada
             const configClient = await this.db.readData('configClient');
             if (!configClient || !configClient.account_selected) {
-                document.querySelector('.current-skin-details').textContent = 'No hay cuenta seleccionada';
+                document.querySelector('.current-skin-details').textContent = localization.t('skins.no_selected_account_error');
                 return;
             }
             
             // Obtener la cuenta actualmente seleccionada usando su ID
             const currentAccount = await this.db.readData('accounts', configClient.account_selected);
             if (!currentAccount) {
-                document.querySelector('.current-skin-details').textContent = 'Cuenta no encontrada';
+                document.querySelector('.current-skin-details').textContent = localization.t('skins.no_selected_account_found');
                 return;
             }
             
             // Actualizar la información de la cuenta en el panel
             const accountInfoElement = document.querySelector('.current-skin-details');
             if (accountInfoElement) {
-                accountInfoElement.textContent = `Seleccionada para: ${currentAccount.name}`;
+                accountInfoElement.textContent = `${localization.t('skins.selected_for')} ${currentAccount.name}`;
             }
         } catch (error) {
             console.error('Error al actualizar información de cuenta:', error);
-            document.querySelector('.current-skin-details').textContent = 'Error al obtener información de la cuenta';
+            document.querySelector('.current-skin-details').textContent = localization.t('skins.account_info_error');
         }
     }
     
@@ -1339,6 +1354,70 @@ class Skins {
         } catch (error) {
             console.error("Error al detectar modelo de skin:", error);
             return 'classic';
+        }
+    }
+    
+    async saveSteveFallback(name, model = 'classic') {
+        try {
+            // Ruta de la skin de Steve por defecto
+            const steveSkinPath = path.join(__dirname, '..', '..', 'images', 'default', 'steve-skin.png');
+            
+            // Si no existe steve-skin.png, usar steve.png
+            let sourceStevePath = steveSkinPath;
+            if (!fs.existsSync(steveSkinPath)) {
+                sourceStevePath = path.join(__dirname, '..', '..', 'images', 'default', 'steve.png');
+                
+                // Si tampoco existe steve.png, crear una skin básica de Steve
+                if (!fs.existsSync(sourceStevePath)) {
+                    console.log('No se encontró imagen de Steve, creando skin básica');
+                    // En este caso, podríamos descargar de una fuente confiable o crear una básica
+                    try {
+                        const response = await fetch('https://mineskin.eu/skin/stevedefault');
+                        if (response.ok) {
+                            const buffer = await response.buffer();
+                            const skinsPath = await this.getSkinsPath();
+                            const fallbackFileName = `${name}_steve_fallback.png`;
+                            const fallbackFilePath = path.join(skinsPath, fallbackFileName);
+                            
+                            fs.writeFileSync(fallbackFilePath, buffer);
+                            
+                            // Guardar metadata
+                            const metadata = { model: model, fallback: true, original_name: name };
+                            const metadataPath = path.join(skinsPath, `${name}_steve_fallback.json`);
+                            fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+                            
+                            await this.loadSkins();
+                            return fallbackFilePath;
+                        }
+                    } catch (downloadError) {
+                        console.error('Error al descargar skin de Steve por defecto:', downloadError);
+                    }
+                    return null;
+                }
+            }
+            
+            // Copiar la skin de Steve existente
+            const steveBuffer = fs.readFileSync(sourceStevePath);
+            const skinsPath = await this.getSkinsPath();
+            const fallbackFileName = `${name}_steve_fallback.png`;
+            const fallbackFilePath = path.join(skinsPath, fallbackFileName);
+            
+            fs.writeFileSync(fallbackFilePath, steveBuffer);
+            
+            // Guardar metadata indicando que es un fallback
+            const metadata = { model: model, fallback: true, original_name: name };
+            const metadataPath = path.join(skinsPath, `${name}_steve_fallback.json`);
+            fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+            
+            console.log('Skin de Steve guardada como fallback para:', name);
+            
+            // Recargar lista de skins
+            await this.loadSkins();
+            
+            return fallbackFilePath;
+        } catch (error) {
+            console.error('Error al crear fallback de Steve:', error);
+            return null;
         }
     }
 }

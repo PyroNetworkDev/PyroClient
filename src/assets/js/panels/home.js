@@ -23,6 +23,7 @@ import {
 	removeUserFromQueue,
 	captureAndSetVideoFrame,
 	getExecutionKey,
+	localization,
 } from "../utils.js";
 import {
 	getHWID,
@@ -36,12 +37,16 @@ import {
 	killMinecraftProcess,
 } from "../MKLib.js";
 import cleanupManager from "../utils/cleanup-manager.js";
+import { downloadAssets } from "../utils/instance-manager.js";
+import { getJavaForMinecraft, setGameInProgress, setGameFinished, getJavaVersion } from "../utils/java-manager.js";
+import MinecraftStatus from "../utils/minecraft-status.js";
+
+const path = require("path");
+const fs = require("fs");
 
 const clientId = pkg.discord_client_id;
 const DiscordRPC = require("discord-rpc");
 const RPC = new DiscordRPC.Client({ transport: "ipc" });
-const fs = require("fs");
-const path = require("path");
 const startingTime = Date.now();
 let dev = process.env.NODE_ENV === "dev";
 let rpcActive = true;
@@ -61,7 +66,7 @@ RPC.on("ready", async () => {
 		state: `En el launcher`,
 		startTimestamp: startingTime,
 		largeImageKey: "icon",
-		largeImageText: pkg.preductname,
+		largeImageText: pkg.productname,
 		instance: true,
 	}).catch((err) => {
 		console.error("Error al establecer la actividad de Discord:", err);
@@ -76,8 +81,7 @@ RPC.login({ clientId }).catch((err) => {
 	);
 	rpcActive = false;
 });
-
-const { Launch } = require("minecraft-java-core");
+const { Client } = require("minecraft-launcher-core");
 const { shell, ipcRenderer } = require("electron");
 class Home {
 	static id = "home";
@@ -110,6 +114,13 @@ class Home {
 		this.addPlayerTooltip();
 		this.addInterfaceTooltips();
 		this.initializeCloseGameButton();
+		
+		// Aplicar traducciones al cargar el panel
+		setTimeout(() => {
+			if (localization && localization.initialized) {
+				localization.forceApplyTranslations();
+			}
+		}, 100);
 	}
 
 	async showstore() {
@@ -119,20 +130,20 @@ class Home {
 			try {
 				const response = await fetch(pkg.store_url).catch((err) =>
 					console.error(
-						"Parece que la tienda no se encuentra online. Ocultando sección de tienda."
+						localization.t('home.store_offline')
 					)
 				);
 				if (response.ok) {
 					document.querySelector(".news-blockshop").style.display = "block";
 				} else {
 					console.error(
-						"Parece que la tienda no se encuentra online. Ocultando sección de tienda..."
+						localization.t('home.store_offline')
 					);
 					document.querySelector(".news-blockshop").style.display = "none";
 				}
 			} catch (error) {
 				console.error(
-					"Parece que la tienda no se encuentra online. Ocultando sección de tienda..."
+					localization.t('home.store_offline')
 				);
 				document.querySelector(".news-blockshop").style.display = "none";
 			}
@@ -142,7 +153,7 @@ class Home {
 		} else {
 			document.querySelector(".news-blockshop").style.display = "none";
 			console.log(
-				"La tienda se encuentra desactivada. Ocultando sección de tienda..."
+				localization.t('home.store_disabled')
 			);
 		}
 	}
@@ -175,26 +186,24 @@ class Home {
 			if (fetchError == false) {
 				if (LogBan == false) {
 					console.error(
-						"Se ha detectado un bloqueo de HWID. No se puede iniciar ninguna instancia."
+						localization.t('home.hwid_blocked_error')
 					);
 					LogBan = true;
 				}
-				notificationTitle.innerHTML = "¡Atención!";
-				notificationContent.innerHTML =
-					"Se ha detectado un bloqueo de dispositivo. No podrá iniciar ninguna instancia hasta que su dispositivo sea desbloqueado.";
+				notificationTitle.innerHTML = localization.t('home.hwid_blocked_title');
+				notificationContent.innerHTML = localization.t('home.hwid_blocked');
 				notification.style.background = colorRed;
 				notificationIcon.src = "assets/images/notification/error.png";
 				await this.showNotification();
 			} else {
 				if (LogBan == false) {
 					console.error(
-						"El anticheat no ha podido verificar la integridad de tu dispositivo y por lo tanto no se podrá jugar a ninguna instancia."
+						localization.t('home.anticheat_verify_error')
 					);
 					LogBan = true;
 				}
-				notificationTitle.innerHTML = "¡Atención!";
-				notificationContent.innerHTML =
-					"No se ha podido conectar con el Anticheat de Miguelki Network y por lo tanto no se podrá jugar a ninguna instancia.";
+				notificationTitle.innerHTML = localization.t('home.hwid_blocked_title');
+				notificationContent.innerHTML = localization.t('home.anticheat_error');
 				notification.style.background = colorRed;
 				notificationIcon.src = "assets/images/notification/error.png";
 				await this.showNotification();
@@ -315,7 +324,7 @@ class Home {
 	}
 
 	async news() {
-		let name = pkg.preductname;
+		let name = pkg.productname;
 		let version = pkg.version;
 		let subversion = pkg.sub_version;
 		let changelog = pkg.changelog;
@@ -433,8 +442,8 @@ class Home {
 		if (!instancesList || instancesList.length === 0) {
 			instancesGrid.innerHTML = `
                 <div class="no-instances-message">
-                    <p>No hay instancias disponibles</p>
-                    <p>Contacta con un administrador o usa el botón + para agregar una instancia con código.</p>
+                    <p>${localization.t('home.no_instances')}</p>
+                    <p>${localization.t('home.no_instances_contact')}</p>
                 </div>
             `;
 			if (configClient.instance_selct) {
@@ -509,28 +518,32 @@ class Home {
 			this.instanceSelectClickHandler = async () => {
 				if (instanceSelectBTN.disabled) return;
 
-				// Verificar si hay bloqueo de dispositivo u otros errores antes de mostrar la ventana
+				// Mostrar el popup inmediatamente con estado de carga
+				this.showInstancePopupWithLoading();
+
+				// Verificar si hay bloqueo de dispositivo u otros errores
 				let hwid = await getHWID();
 				let check = await checkHWID(hwid);
 				let fetchError = await getFetchError();
 
 				if (check) {
+					// Ocultar el popup de carga y mostrar error
+					instancePopup.classList.remove("show");
+					
 					if (fetchError == false) {
 						let popupError = new popup();
 						popupError.openPopup({
-							title: "Error",
-							content:
-								"No puedes seleccionar ninguna instancia debido al bloqueo de dispositivo presente.<br><br>Si crees que esto es un error, abre ticket en el discord de Miguelki Network.",
-							color: "red",
+							title: localization.t('launcher.error'),
+							content: localization.t('home.hwid_blocked') + "<br><br>" + localization.t('home.hwid_blocked_ticket'),
+						 color: "red",
 							options: true,
 						});
 						return;
 					} else {
 						let popupError = new popup();
 						popupError.openPopup({
-							title: "Error",
-							content:
-								"No se ha podido conectar con el Anticheat de Miguelki Network y por lo tanto no se podrá seleccionar ninguna instancia.",
+							title: localization.t('launcher.error'),
+							content: localization.t('home.anticheat_error'),
 							color: "red",
 							options: true,
 						});
@@ -540,62 +553,85 @@ class Home {
 
 				let username = await getUsername();
 
-				let refreshedInstancesList = await config.getInstanceList();
+				try {
+					let refreshedInstancesList = await config.getInstanceList();
 
-				instancesGrid.innerHTML = "";
+					// Agregar una pequeña demora solo en desarrollo para que se vea el efecto de carga
+					if (dev) {
+						await new Promise(resolve => setTimeout(resolve, 800));
+					} else {
+						await new Promise(resolve => setTimeout(resolve, 300));
+					}
 
-				if (!refreshedInstancesList || refreshedInstancesList.length === 0) {
-					instancesGrid.innerHTML = `
-                        <div class="no-instances-message">
-                            <p>No hay instancias disponibles</p>
-                            <p>Contacta con un administrador o usa el botón + para agregar una instancia con código.</p>
-                        </div>
-                    `;
-				} else {
-					let visibleInstanceCount = 0;
+					// Ocultar elementos de loading y mostrar las instancias reales
+					this.hideInstanceLoading();
+					
+					// Limpiar y llenar el contenido de instancias
+					instancesGrid.innerHTML = "";
 
-					for (let instance of refreshedInstancesList) {
-						let color = instance.maintenance ? "red" : "green";
-						let whitelist =
-							instance.whitelistActive && instance.whitelist.includes(username);
-						let imageUrl =
-							instance.thumbnail || "assets/images/default/placeholder.jpg";
-						if (!instance.whitelistActive || whitelist) {
-							instancesGrid.innerHTML += `
-                                <div id="${
-																	instance.name
-																}" class="instance-element ${
-								instance.name === instanceSelect ? "active-instance" : ""
-							}">
-                                    <div class="instance-image" style="background-image: url('${imageUrl}');"></div>
-                                    <div class="instance-name">${
+					if (!refreshedInstancesList || refreshedInstancesList.length === 0) {
+						instancesGrid.innerHTML = `
+						<div class="no-instances-message">
+							<p>${localization.t('home.no_instances')}</p>
+							<p>${localization.t('home.no_instances_contact')}</p>
+						</div>
+					`;
+					} else {
+						let visibleInstanceCount = 0;
+
+						for (let instance of refreshedInstancesList) {
+							let color = instance.maintenance ? "red" : "green";
+							let whitelist =
+								instance.whitelistActive && instance.whitelist.includes(username);
+							let imageUrl =
+								instance.thumbnail || "assets/images/default/placeholder.jpg";
+							if (!instance.whitelistActive || whitelist) {
+								instancesGrid.innerHTML += `
+								<div id="${
+																		instance.name
+																	}" class="instance-element ${
+									instance.name === instanceSelect ? "active-instance" : ""
+								}">
+									<div class="instance-image" style="background-image: url('${imageUrl}');"></div>
+									<div class="instance-name">${
 																			instance.name
 																		}<div class="instance-mkid" style="background-color: ${color};"></div></div>
-                                </div>`;
-							visibleInstanceCount++;
+								</div>`;
+								visibleInstanceCount++;
+							}
+						}
+
+						if (visibleInstanceCount === 0) {
+							instancesGrid.innerHTML = `
+							<div class="no-instances-message">
+								<p>${localization.t('home.no_instances_account')}</p>
+								<p>${localization.t('home.no_instances_contact')}</p>
+							</div>
+						`;
+						} else {
+							const remainder = visibleInstanceCount % 3;
+							instancesGrid.classList.remove("one-item", "two-items");
+
+							if (remainder === 1) {
+								instancesGrid.classList.add("one-item");
+							} else if (remainder === 2) {
+								instancesGrid.classList.add("two-items");
+							}
 						}
 					}
 
-					if (visibleInstanceCount === 0) {
-						instancesGrid.innerHTML = `
-                            <div class="no-instances-message">
-                                <p>No hay instancias disponibles para tu cuenta</p>
-                                <p>Contacta con un administrador o usa el botón + para agregar una instancia con código.</p>
-                            </div>
-                        `;
-					} else {
-						const remainder = visibleInstanceCount % 3;
-						instancesGrid.classList.remove("one-item", "two-items");
-
-						if (remainder === 1) {
-							instancesGrid.classList.add("one-item");
-						} else if (remainder === 2) {
-							instancesGrid.classList.add("two-items");
-						}
-					}
+				} catch (error) {
+					console.error("Error al cargar las instancias:", error);
+					
+					// Ocultar loading y mostrar error
+					this.hideInstanceLoading();
+					instancesGrid.innerHTML = `
+						<div class="no-instances-message">
+							<p>${localization.t('home.error_loading_instances') || 'Error al cargar las instancias'}</p>
+							<p>${localization.t('home.error_loading_instances_info') || 'Por favor, inténtalo de nuevo más tarde'}</p>
+						</div>
+					`;
 				}
-
-				instancePopup.classList.add("show");
 			};
 
 			instanceSelectBTN.addEventListener(
@@ -609,6 +645,12 @@ class Home {
 				if (e.target.closest(".instance-element")) {
 					let newInstanceSelect = e.target.closest(".instance-element").id;
 					let activeInstanceSelect = document.querySelector(".active-instance");
+
+					// Clear cache when changing instance
+					if (instanceSelect !== newInstanceSelect) {
+						console.log('Clearing server status cache due to instance change in popup');
+						MinecraftStatus.clearCache();
+					}
 
 					if (activeInstanceSelect)
 						activeInstanceSelect.classList.remove("active-instance");
@@ -674,7 +716,11 @@ class Home {
 	}
 
 	async startGame() {
-		let configClient = await this.db.readData("configClient");
+		let musicPlaying = true;
+		
+		try {
+			let configClient = await this.db.readData("configClient");
+			let javaPath = configClient.java_config.java_path;
 
 		if (!configClient.instance_selct) {
 			this.enablePlayButton();
@@ -751,6 +797,7 @@ class Home {
 				if (authenticator) {
 					console.log(
 						`Cuenta encontrada por método alternativo: ${authenticator.name} (ID: ${authenticator.ID})`
+
 					);
 
 					await this.db.updateData("accounts", authenticator, authenticator.ID);
@@ -769,6 +816,7 @@ class Home {
 					`Cuentas disponibles: ${allAccounts
 						.map((a) => `${a.name}(${a.ID})`)
 						.join(", ")}`
+
 				);
 			}
 
@@ -793,9 +841,8 @@ class Home {
 				this.enablePlayButton();
 				let popupError = new popup();
 				popupError.openPopup({
-					title: "Error",
-					content:
-						"No puedes iniciar ninguna instancia debido al bloqueo de dispositivo presente.<br><br>Si crees que esto es un error, abre ticket en el discord de Miguelki Network.",
+					title: localization.t('launcher.error'),
+					content: localization.t('home.hwid_blocked') + "<br><br>" + localization.t('home.hwid_blocked_ticket'),
 					color: "red",
 					options: true,
 				});
@@ -804,9 +851,8 @@ class Home {
 				this.enablePlayButton();
 				let popupError = new popup();
 				popupError.openPopup({
-					title: "Error",
-					content:
-						"No se ha podido conectar con el Anticheat de Miguelki Network y por lo tanto no se podrá jugar a ninguna instancia.",
+					title: localization.t('launcher.error'),
+					content: localization.t('home.anticheat_error'),
 					color: "red",
 					options: true,
 				});
@@ -822,12 +868,34 @@ class Home {
 		if (!options) {
 			this.enablePlayButton();
 			let popupError = new popup();
-			popupError.openPopup({
-				title: "Instancia no encontrada",
-				content:
-					"La instancia seleccionada ya no existe. Por favor, selecciona otra instancia.",
-				color: "var(--color)",
+			popupError.openDialog({
+				title: localization.t('home.instance_not_found'),
+				content: localization.t('home.instance_not_found_message', {instance: configClient.instance_selct}) + 
+				'<br>' + localization.t('home.instance_update_list'),
 				options: true,
+				acceptText: localization.t('home.update_list'),
+				cancelText: localization.t('home.select_other'),
+				callback: async (result) => {
+					if (result === 'accept') {
+						// Recargar lista de instancias
+						try {
+							await config.getInstanceList(true); // Force refresh
+						} catch (error) {
+							console.error("Error al actualizar lista de instancias:", error);
+							let errorPopup = new popup();
+							errorPopup.openPopup({
+								title: localization.t('home.update_error'),
+								content: localization.t('home.update_error_message') + `:
+${error.message}`,
+								color: "red",
+								options: true,
+							});
+						}
+					} else {
+						// Abrir selector de instancias
+						document.querySelector(".instance-popup").style.display = "flex";
+					}
+				}
 			});
 			return;
 		}
@@ -844,14 +912,14 @@ class Home {
 			let popupError = new popup();
 			if (options.maintenancemsg == "") {
 				popupError.openPopup({
-					title: "Error al iniciar el cliente",
-					content: "El cliente no se encuentra disponible.",
+					title: localization.t('home.game_launch_error'),
+					content: localization.t('home.instance_maintenance'),
 					color: "red",
 					options: true,
 				});
 			} else {
 				popupError.openPopup({
-					title: "Error al iniciar el cliente",
+					title: localization.t('home.game_launch_error'),
 					content: options.maintenancemsg,
 					color: "red",
 					options: true,
@@ -865,8 +933,8 @@ class Home {
 			this.enablePlayButton();
 			let popupError = new popup();
 			popupError.openPopup({
-				title: "Error",
-				content: "No tienes permiso para iniciar esta instancia.",
+				title: localization.t('launcher.error'),
+				content: localization.t('home.instance_no_permission'),
 				color: "red",
 				options: true,
 			});
@@ -874,10 +942,10 @@ class Home {
 		}
 
 		playInstanceBTN.style.display = "none";
-		infoStartingBOX.style.display = "block";
+		infoStartingBOX.style.display = "flex";
 		instanceSelectBTN.disabled = true;
 		instanceSelectBTN.classList.add("disabled");
-		progressBar.style.display = "none";
+		this.hideProgressBar();
 
 		try {
 			const queueResult = await this.checkQueueStatus(hwid, username);
@@ -901,16 +969,15 @@ class Home {
 
 			let popupError = new popup();
 			popupError.openPopup({
-				title: "Error en la cola",
-				content:
-					"Ha ocurrido un error al conectar con el sistema de cola. Por favor, inténtalo de nuevo más tarde.",
+				title: localization.t('home.queue_error'),
+				content: localization.t('home.queue_error_message'),
 				color: "red",
 				options: true,
 			});
 			return;
 		}
 
-		progressBar.style.display = "";
+		this.showProgressBar();
 		ipcRenderer.send("main-window-progress-load");
 
 		let recentInstances = configClient.recent_instances || [];
@@ -933,7 +1000,8 @@ class Home {
 		const ignoredFiles = [...options.ignored];
 
 		try {
-			infoStarting.innerHTML = `Descargando librerias extra...`;
+			infoStarting.innerHTML = localization.t('home.downloading_libraries');
+			this.setProgressBarIndeterminate();
 			const loaderType = options.loadder.loadder_type;
 			const minecraftVersion = options.loadder.minecraft_version;
 
@@ -972,8 +1040,8 @@ class Home {
 			console.error("Error al instalar las librerias extra:", error);
 		}
 
-		infoStarting.innerHTML = `Conectando...`;
-		progressBar.value = 0;
+		infoStarting.innerHTML = localization.t('home.connecting');
+		this.setProgressBarIndeterminate();
 
 		console.log("Obteniendo clave de ejecución...");
 		let execKey = null;
@@ -1032,56 +1100,580 @@ class Home {
 		}
 
 		console.log("Configurando opciones de lanzamiento...");
-		let launch = new Launch();
+		let launcher = new Client();
+		let launchConfig;
 
-		let opt = {
-			url: options.url,
-			authenticator: authenticator,
-			timeout: 10000,
-			path: `${await appdata()}/${
+		try {
+			console.log(`Iniciando descarga de assets para la instancia: ${options.name}`);
+			infoStarting.innerHTML = localization.t('home.downloading_assets');
+			this.setProgressBarDeterminate(0, 100);
+
+			// Carpeta de destino para los assets - directamente en la instancia
+			const instancePath = `${await appdata()}/${
 				process.platform == "darwin"
 					? this.config.dataDirectory
 					: `.${this.config.dataDirectory}`
-			}`,
-			instance: options.name,
-			version: options.loadder.minecraft_version,
-			detached:
-				configClient.launcher_config.closeLauncher == "close-all"
-					? false
-					: true,
-			downloadFileMultiple: configClient.launcher_config.download_multi,
-			intelEnabledMac: configClient.launcher_config.intelEnabledMac,
+			}/instances/${options.name}`;
+			console.log(`Ruta de la instancia: ${instancePath}`);
+			
+			// URL de assets basada en la URL de la instancia con un endpoint fijo
+			const assetsUrl = options.url;
+			console.log(`URL de assets: ${assetsUrl}`);
+			
+			// Lista de archivos ignorados para la verificación de integridad
+			const ignoredAssets = ignoredFiles;
+			
+			// Variable para controlar cuándo mostrar progreso vs. estado
+			let showingProgress = false;
+			
+			// Callback para reportar progreso
+			const progressCallback = (progress, processed, total, downloadedSize, totalSize) => {
+				// Activar modo de progreso
+				showingProgress = true;
+				
+				// Validar que los valores sean números finitos válidos
+				const safeProgress = (typeof progress === 'number' && isFinite(progress) && !isNaN(progress)) ? Math.max(0, Math.min(100, progress)) : 0;
+				const safeProcessed = (typeof processed === 'number' && isFinite(processed) && !isNaN(processed)) ? processed : 0;
+				const safeTotal = (typeof total === 'number' && isFinite(total) && !isNaN(total)) ? Math.max(1, total) : 1;
+				const safeDownloadedSize = (typeof downloadedSize === 'number' && isFinite(downloadedSize) && !isNaN(downloadedSize)) ? downloadedSize : 0;
+				const safeTotalSize = (typeof totalSize === 'number' && isFinite(totalSize) && !isNaN(totalSize)) ? totalSize : 0;
+				const sizeText = safeTotalSize > 0 ? 
+					` (${(safeDownloadedSize / 1024 / 1024).toFixed(1)}MB/${(safeTotalSize / 1024 / 1024).toFixed(1)}MB)` : '';
+				
+				// Actualizar la barra de progreso local con valores validados
+				if (progressBar) {
+					try {
+						this.setProgressBarDeterminate(safeProgress, 100);
+					} catch (error) {
+						try {
+							this.setProgressBarDeterminate(0, 100);
+						} catch (fallbackError) {
+							console.error('Even fallback failed:', fallbackError);
+						}
+					}
+				}
+				
+				// Actualizar el progreso en la barra de tareas de Windows
+				ipcRenderer.send("main-window-progress", { progress: safeProgress, size: 100 });
+				
+				// Actualizar el texto del estado con el progreso
+				if (infoStarting) {
+					if (safeProgress <= 50) {
+						// Fase de verificación (0-50%)
+						infoStarting.innerHTML = `${localization.t('home.verifying_assets')} ${Math.round(safeProgress)}% (${safeProcessed}/${safeTotal})`;
+					} else {
+						// Fase de descarga (50-100%)
+						infoStarting.innerHTML = `${localization.t('home.downloading_assets')} ${Math.round(safeProgress)}% (${safeProcessed}/${safeTotal})${sizeText}`;
+					}
+				}
+			};
 
+			// CallbackProgress event received para actualizar el estado - SOLO para mensajes de estado sin progreso
+			const statusCallback = (status) => {
+				// Validar que el status sea una cadena válida
+				const safeStatus = (typeof status === 'string' && status.trim()) ? status.trim() : localization.t('messages.processing');
+				
+				// SOLO actualizar si NO estamos mostrando progreso o si es un mensaje de finalización
+				if (infoStarting && (!showingProgress || safeStatus.includes('completada') || safeStatus.includes('Limpiando'))) {
+					infoStarting.innerHTML = safeStatus;
+					// Si es un mensaje de finalización, desactivar el modo progreso
+					if (safeStatus.includes('completada')) {
+						showingProgress = false;
+					}
+				}
+			};
+
+			// Descargar assets
+			console.log('🚀 Starting downloadAssets function...');
+			await downloadAssets(
+				assetsUrl,
+				instancePath,
+				ignoredAssets,
+				progressCallback,
+				statusCallback
+			);
+			console.log('✅ downloadAssets function completed successfully');
+
+			console.log(`Descarga de assets completada para la instancia: ${options.name}`);
+			infoStarting.innerHTML = localization.t('home.assets_download_success');
+			
+			// Mostrar progreso completo por un momento
+			this.setProgressBarDeterminate(100, 100);
+			
+			// Dar tiempo adicional para que todos los procesos asíncronos terminen
+			await new Promise(resolve => setTimeout(resolve, 1500));
+			
+			// Desactivar el modo progreso
+			showingProgress = false;
+
+		} catch (error) {
+			console.error(`Error al descargar assets para ${options.name}:`, error);
+			
+			// Mostrar error al usuario con detalles específicos
+			this.enablePlayButton();
+			if (playInstanceBTN) playInstanceBTN.style.display = "flex";
+			if (infoStartingBOX) infoStartingBOX.style.display = "none";
+			if (instanceSelectBTN) {
+				instanceSelectBTN.disabled = false;
+				instanceSelectBTN.classList.remove("disabled");
+			}
+			if (closeGameButton) closeGameButton.style.display = "none";
+			
+			ipcRenderer.send("main-window-progress-reset");
+			
+			// Categorizar el error para mostrar mensaje más útil
+			let errorTitle = "Error de Descarga de Assets";
+			let errorMessage = error.message;
+			let suggestions = [];
+			
+			if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('ECONNREFUSED')) {
+				errorTitle = "Error de Conexión";
+				errorMessage = "No se pudo conectar al servidor de assets.";
+				suggestions.push("- Verifica tu conexión a internet");
+				suggestions.push("- El servidor puede estar temporalmente no disponible");
+				suggestions.push("- Inténtalo de nuevo en unos minutos");
+			} else if (errorMessage.includes('ENOSPC')) {
+				errorTitle = "Espacio Insuficiente";
+				errorMessage = "No hay suficiente espacio en disco para descargar los assets.";
+				suggestions.push("- Libera espacio en tu disco duro");
+				suggestions.push("- Verifica que tienes al menos 2GB libres");
+			} else if (errorMessage.includes('EPERM') || errorMessage.includes('EACCES')) {
+				errorTitle = "Error de Permisos";
+				errorMessage = "No se tienen permisos para escribir en la carpeta de destino.";
+				suggestions.push("- Ejecuta el launcher como administrador");
+				suggestions.push("- Verifica permisos de la carpeta del launcher");
+			} else if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT')) {
+				errorTitle = "Timeout de Descarga";
+				errorMessage = "La descarga tardó demasiado tiempo.";
+				suggestions.push("- Tu conexión puede ser lenta");
+				suggestions.push("- Inténtalo de nuevo");
+				suggestions.push("- Considera usar una conexión más estable");
+			} else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+				errorTitle = "Assets No Encontrados";
+				errorMessage = "Los assets para esta instancia no están disponibles.";
+				suggestions.push("- Contacta al administrador del servidor");
+				suggestions.push("- Verifica que la instancia esté configurada correctamente");
+			}
+			
+			const fullMessage = suggestions.length > 0 
+				? `${errorMessage}\n\nSugerencias:\n${suggestions.join('\n')}`
+				: errorMessage;
+			
+			let popupError = new popup();
+			popupError.openPopup({
+				title: errorTitle,
+				content: fullMessage,
+				color: "red",
+				options: true,
+			});
+			return;
+		}
+		console.log("🎯 Finalizada completamente la descarga de assets. Continuando con configuración del loader...");
+		
+		try {
+			console.log(`Obteniendo configuración para loader: ${options.loadder.loadder_type}`);
+			
+			const rootPath = `${await appdata()}/${
+				process.platform == "darwin"
+					? this.config.dataDirectory
+					: `.${this.config.dataDirectory}`
+			}`;
+			
+			// Mostrar progreso de configuración
+			infoStarting.innerHTML = `${localization.t('home.configuring_loader')} ${options.loadder.loadder_type}...`;
+			this.setProgressBarDeterminate(0, 100);
+			
+			const loaderResult = await ipcRenderer.invoke('get-launcher-config', {
+				loaderType: options.loadder.loadder_type,
+				gameVersion: options.loadder.minecraft_version,
+				rootPath: rootPath
+			});
+			
+			if (!loaderResult.success) {
+				console.error('Error detallado del loader:', loaderResult);
+				
+				// Manejo específico por tipo de error
+				let errorTitle = "Error de Configuración";
+				let errorContent = loaderResult.error;
+				let suggestions = [];
+				
+				switch (loaderResult.category) {
+					case 'network':
+						errorTitle = "Error de Conexión";
+						suggestions.push("- Verifica tu conexión a internet");
+						suggestions.push("- Inténtalo de nuevo en unos minutos");
+						break;
+					case 'filesystem':
+						errorTitle = "Error de Permisos";
+						suggestions.push("- Ejecuta el launcher como administrador");
+						suggestions.push("- Verifica que tienes permisos de escritura");
+						break;
+					case 'timeout':
+						errorTitle = "Timeout de Descarga";
+						suggestions.push("- Tu conexión puede ser lenta");
+						suggestions.push("- Inténtalo de nuevo");
+						break;
+					case 'version':
+						errorTitle = "Versión No Disponible";
+						suggestions.push(`- Verifica que ${options.loadder.loadder_type} soporta Minecraft ${options.loadder.minecraft_version}`);
+						suggestions.push("- Contacta al administrador del servidor");
+						break;
+					default:
+						suggestions.push("- Inténtalo de nuevo");
+						suggestions.push("- Si el problema persiste, contacta al soporte");
+						break;
+				}
+				
+				const fullErrorMessage = `${errorContent}\n\nSugerencias:\n${suggestions.join('\n')}`;
+				
+				throw new Error(fullErrorMessage);
+			}
+			
+			// Validar configuración antes de continuar
+			const validationResult = await ipcRenderer.invoke('validate-launcher-config', {
+				config: loaderResult.config,
+				loaderType: options.loadder.loadder_type,
+				gameVersion: options.loadder.minecraft_version
+			});
+			
+			if (validationResult.success) {
+				if (!validationResult.validation.valid) {
+					console.warn('Configuración del launcher tiene problemas:', validationResult.validation);
+					
+					// Mostrar advertencias al usuario si las hay
+					if (validationResult.validation.warnings.length > 0) {
+						console.warn('Advertencias de configuración:', validationResult.validation.warnings);
+					}
+					
+					// Solo fallar si hay errores críticos que no podemos solucionar
+					const criticalErrors = validationResult.validation.errors.filter(error => 
+						!error.includes('directorio del juego') // Este error lo solucionamos nosotros
+					);
+					
+					if (criticalErrors.length > 0) {
+						throw new Error(`Configuración inválida:\n${criticalErrors.join('\n')}`);
+					}
+				}
+			} else {
+				console.warn('Error al validar configuración:', validationResult.error);
+				// Continuar de todos modos, la validación no es crítica
+			}
+			
+			launchConfig = loaderResult.config;
+			console.log("Configuración del launcher obtenida y validada correctamente");
+			
+		} catch (error) {
+			console.error("Error al configurar el launcher:", error);
+			
+			// Restablecer UI
+			this.enablePlayButton();
+			if (playInstanceBTN) playInstanceBTN.style.display = "flex";
+			if (infoStartingBOX) infoStartingBOX.style.display = "none";
+			if (instanceSelectBTN) {
+				instanceSelectBTN.disabled = false;
+				instanceSelectBTN.classList.remove("disabled");
+			}
+			if (closeGameButton) closeGameButton.style.display = "none";
+			
+			// Limpiar barra de progreso
+			ipcRenderer.send("main-window-progress-reset");
+			
+			// Mostrar error detallado al usuario
+			let popupError = new popup();
+			popupError.openPopup({
+				title: "Error de Configuración del Loader",
+				content: `No se pudo configurar ${options.loadder.loadder_type} para Minecraft ${options.loadder.minecraft_version}:\n\n${error.message}`,
+				color: "red",
+				options: true,
+			});
+			
+			return;
+		}
+
+		let opt;
+		/* if (options.loadder.loadder_type == "forge") { */
+		
+		// Definir rootPath al inicio para uso en toda la configuración
+		const rootPath = `${await appdata()}/${
+			process.platform == "darwin"
+				? this.config.dataDirectory
+				: `.${this.config.dataDirectory}`
+		}`;
+		
+		// Establecer el gameDirectory correcto para la instancia
+		const instanceGameDirectory = `${rootPath}/instances/${options.name}`;
+		
+		// Asegurar que launchConfig tiene las propiedades necesarias
+		if (!launchConfig.gameDirectory && !launchConfig.directory) {
+			console.log(`Estableciendo gameDirectory para la instancia: ${instanceGameDirectory}`);
+			launchConfig.gameDirectory = instanceGameDirectory;
+		}
+		
+		// Crear el directorio de la instancia si no existe
+		if (!fs.existsSync(instanceGameDirectory)) {
+			console.log(`Creando directorio de instancia: ${instanceGameDirectory}`);
+			fs.mkdirSync(instanceGameDirectory, { recursive: true });
+		}
+		
+		// Crear estructura de directorios necesaria para Minecraft
+		const requiredDirs = [
+			path.join(instanceGameDirectory, 'mods'),
+			path.join(instanceGameDirectory, 'config'),
+			path.join(instanceGameDirectory, 'saves'),
+			path.join(instanceGameDirectory, 'resourcepacks'),
+			path.join(instanceGameDirectory, 'screenshots'),
+			path.join(instanceGameDirectory, 'logs'),
+			path.join(instanceGameDirectory, 'crash-reports')
+		];
+		
+		for (const dir of requiredDirs) {
+			if (!fs.existsSync(dir)) {
+				console.log(`Creando directorio: ${dir}`);
+				fs.mkdirSync(dir, { recursive: true });
+			}
+		}
+		
+		// ======== CONFIGURACIÓN ESPECÍFICA PARA VERSIONES LEGACY ========
+		// Añadir argumentos JVM específicos para versiones antiguas de Minecraft
+		const minecraftVersionFloat = parseFloat(options.loadder.minecraft_version.replace(/^1\./, '1.'));
+		let legacyJvmArgs = [];
+		
+		if (minecraftVersionFloat <= 1.16) {
+			console.log(`🔧 Aplicando configuración legacy para Minecraft ${options.loadder.minecraft_version}`);
+			
+			// Argumentos específicos para LWJGL 2.x (versiones legacy)
+			legacyJvmArgs = [
+				// Forzar el uso de OpenGL software rendering como fallback
+				'-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true',
+				// Configurar biblioteca nativa LWJGL
+				'-Dorg.lwjgl.librarypath=' + path.join(rootPath, 'bin', 'natives'),
+				// Deshabilitar verificaciones de compatibilidad de LWJGL que pueden fallar
+				'-Dorg.lwjgl.util.NoChecks=true',
+				// Configurar OpenAL para compatibilidad
+				'-Dopenal.library=' + path.join(rootPath, 'bin', 'natives', process.platform === 'win32' ? 'OpenAL32.dll' : 'libopenal.so'),
+				// Argumentos para prevenir errores de memoria de LWJGL
+				'-Dorg.lwjgl.util.Debug=false',
+				// Configurar DirectX/OpenGL para Windows
+				...(process.platform === 'win32' ? [
+					'-Djava.library.path=' + path.join(rootPath, 'bin', 'natives'),
+					'-Dsun.java2d.d3d=false',
+					'-Dsun.java2d.opengl=false'
+				] : [])
+			];
+			
+			console.log(`🛠️ Argumentos JVM legacy añadidos`);
+		}
+
+		// ======== VERIFICACIÓN Y DESCARGA AUTOMÁTICA DE JAVA ========
+		console.log("☕ Verificando compatibilidad de Java...");
+		console.log(`🎮 Versión de Minecraft: ${options.loadder.minecraft_version}`);
+		console.log(`📍 Java configurado actualmente: ${javaPath}`);
+		infoStarting.innerHTML = `${localization.t('home.java_checking_for_mc')} ${options.loadder.minecraft_version}...`;
+		this.setProgressBarIndeterminate();
+
+		try {
+			// Usar getJavaForMinecraft para obtener la ruta de Java apropiada
+			const compatibleJavaPath = await getJavaForMinecraft(
+				options.loadder.minecraft_version,
+				javaPath,
+				// Progress callback para descarga de Java
+				(progress, downloaded, total) => {
+					this.setProgressBarDeterminate(progress, 100);
+					console.log(`📥 Descarga de Java: ${progress}% (${Math.round(downloaded / (1024 * 1024))}/${Math.round(total / (1024 * 1024))} MB)`);
+				},
+				// Status callback para descarga de Java
+				(status) => {
+					infoStarting.innerHTML = status;
+					console.log(`☕ ${status}`);
+				}
+			);
+			
+			// Actualizar la configuración con la ruta de Java apropiada
+			javaPath = compatibleJavaPath;
+			console.log(`✅ Java final seleccionado: ${javaPath}`);
+			
+			// Verificar versión de Java seleccionada
+			try {
+				const javaVersionInfo = await getJavaVersion(javaPath);
+				console.log(`📊 Versión de Java detectada: Java ${javaVersionInfo.major}.${javaVersionInfo.minor} (${javaVersionInfo.full})`);
+			} catch (versionError) {
+				console.warn(`⚠️ No se pudo verificar la versión de Java: ${versionError.message}`);
+			}
+			javaPath = compatibleJavaPath;
+			console.log(`✅ Java verificado/descargado: ${javaPath}`);
+			
+			// Marcar que el juego va a usar este Java
+			setGameInProgress(javaPath, options.name);
+			
+			// Validar que el ejecutable de Java existe y es accesible
+			if (!javaPath || !fs.existsSync(javaPath)) {
+				throw new Error(`Ruta de Java no válida o no existe: ${javaPath}`);
+			}
+			
+			// Validar que el archivo Java es ejecutable
+			try {
+				fs.accessSync(javaPath, fs.constants.X_OK);
+				console.log(`✅ Java ejecutable verificado: ${javaPath}`);
+			} catch (error) {
+				console.warn(`⚠️ Java puede no ser ejecutable: ${error.message}`);
+				// En Windows, esto puede fallar pero el archivo sigue siendo válido
+			}
+			
+			// Si se descargó una nueva versión de Java, actualizar la configuración para uso futuro
+			if (compatibleJavaPath !== configClient.java_config.java_path && 
+				(configClient.java_config.java_path === null || 
+				 configClient.java_config.java_path === 'launcher')) {
+				
+				// Solo actualizar si el usuario no había configurado una ruta personalizada
+				console.log(`📝 Actualizando configuración de Java con nueva ruta automática`);
+				configClient.java_config.java_path = compatibleJavaPath;
+				await this.db.updateData('configClient', configClient);
+			}
+			
+		} catch (javaError) {
+			console.error('❌ Error configurando Java:', javaError);
+			
+			// Mostrar error específico al usuario
+			let popupError = new popup();
+			popupError.openPopup({
+				title: "Error de Java",
+				content: `No se pudo configurar Java para Minecraft ${options.loadder.minecraft_version}:<br>
+				${javaError.message}<br><br>
+				Por favor:<br>
+				- Verifica tu conexión a internet<br>
+				- Asegúrate de tener suficiente espacio en disco<br>
+				- Si el problema persiste, contacta al soporte`,
+				color: "red",
+				options: true,
+			});
+			
+			// Restaurar UI
+			if (infoStartingBOX) infoStartingBOX.style.display = "none";
+			if (instanceSelectBTN) {
+				instanceSelectBTN.disabled = false;
+				instanceSelectBTN.classList.remove("disabled");
+			}
+			if (closeGameButton) closeGameButton.style.display = "none";
+			ipcRenderer.send("main-window-progress-reset");
+			
+			return;
+		}
+		
+		// ======== VALIDACIÓN DEL OBJETO AUTENTICADOR ========
+		// Asegurar que el nombre del usuario esté dentro del límite de 16 caracteres de Minecraft
+		if (authenticator && authenticator.name && authenticator.name.length > 16) {
+			console.warn(`⚠️ Nombre de usuario demasiado largo: "${authenticator.name}" (${authenticator.name.length} chars)`);
+			console.warn(`🔧 Truncando nombre a 16 caracteres para evitar error de protocolo`);
+			
+			// Crear una copia del objeto authenticator con el nombre truncado
+			authenticator = {
+				...authenticator,
+				name: authenticator.name.substring(0, 16)
+			};
+			
+			console.log(`✅ Nombre truncado a: "${authenticator.name}" (${authenticator.name.length} chars)`);
+		}
+		
+		console.log(`👤 Usuario final para autenticación: "${authenticator.name}" (${authenticator.name.length} chars)`);
+		
+		// Configuración específica para minecraft-launcher-core
+		opt = {
+			// Configuración base de tomate-loaders
+			...launchConfig,
+			
+			// Autenticación
+			authorization: authenticator,
+			
+			// Timeout para conexiones
+			timeout: 10000,
+			
+			// Directorio raíz donde se almacenan los archivos del launcher
+			root: instanceGameDirectory,
+			
+			// Nombre de la instancia
+			instance: options.name,
+			
+			// Configuración de versión
+			version: {
+				number: options.loadder.minecraft_version,
+				type: "release",
+				custom: options.loadder.custom_version
+			},
+			
+			// Configuración de proceso separado
+			detached: configClient.launcher_config.closeLauncher == "close-all" ? false : true,
+
+			// Configuración del loader (Forge/Fabric/Quilt)
 			loader: {
 				type: options.loadder.loadder_type,
 				build: options.loadder.loadder_version,
-				enable: options.loadder_type == "none" ? false : true,
+				enable: options.loadder.loadder_type !== "none" && options.loadder.loadder_type !== "vanilla"
 			},
+			
+			// Para Forge específicamente, usar el campo forge si está disponible
+			...(options.loadder.loadder_type === "forge" && launchConfig.forge ? { forge: launchConfig.forge } : {}),
 
-			verify: options.verify,
+			// Configuración de Java - usar la ruta verificada/descargada
+			javaPath: javaPath,
+			
+			// Configuración alternativa para minecraft-launcher-core (algunas versiones usan java en vez de javaPath)
+			java: javaPath,
 
-			ignored: ignoredFiles,
+			// Argumentos personalizados de JVM (incluir argumentos legacy si es necesario)
+			customArgs: [
+				...(legacyJvmArgs || []),
+				...(options.jvm_args ? options.jvm_args : [])
+			],
+			
+			// Argumentos personalizados del juego
+			customLaunchArgs: gameArgs ? gameArgs : [],
 
-			java: {
-				path: configClient.java_config.java_path,
-			},
-
-			JVM_ARGS: options.jvm_args ? options.jvm_args : [],
-			GAME_ARGS: options.game_args ? options.game_args : [],
-
+			// Configuración de pantalla
 			screen: {
 				width: configClient.game_config.screen_size.width,
 				height: configClient.game_config.screen_size.height,
 			},
 
+			// Configuración de memoria
 			memory: {
 				min: `${configClient.java_config.java_memory.min * 1024}M`,
 				max: `${configClient.java_config.java_memory.max * 1024}M`,
 			},
+
+			// Overrides específicos para directorios personalizados
+			overrides: {
+				// Directorio donde el juego genera saves, resource packs, etc.
+				gameDirectory: instanceGameDirectory,
+				// Directorio donde están los archivos del Minecraft jar y version json
+				directory: launchConfig.directory || path.join(rootPath, 'versions', options.loadder.minecraft_version),
+				// Directorio de nativos
+				natives: path.join(rootPath, 'bin', 'natives'),
+				// Directorio de assets
+				assetRoot: path.join(rootPath, 'assets'),
+				// Directorio de librerías
+				libraryRoot: path.join(rootPath, 'libraries'),
+				// Directorio de trabajo para el proceso Java
+				cwd: instanceGameDirectory,
+				detached: configClient.launcher_config.closeLauncher == "close-all" ? false : true,
+			}
 		};
+	
+		
+		// Verificar que el directorio de mods existe y tiene permisos de escritura
+		const modsDir = path.join(instanceGameDirectory, 'mods');
+		if (fs.existsSync(modsDir)) {
+			try {
+				fs.accessSync(modsDir, fs.constants.W_OK);
+				console.log(`✅ Directorio de mods accesible: ${modsDir}`);
+			} catch (error) {
+				console.error(`❌ Error de permisos en directorio de mods: ${error.message}`);
+			}
+		} else {
+			console.error(`❌ Directorio de mods no existe: ${modsDir}`);
+		}
 
 		let musicMuted = configClient.launcher_config.music_muted;
-		let musicPlaying = true;
+		// musicPlaying is already declared at function scope
 
 		let modsApplied = false;
 		let specialModCleaned = false;
@@ -1098,7 +1690,7 @@ class Home {
 			console.log(`Configurando limpieza para la instancia: ${options.name}`);
 			await cleanupManager.queueCleanup(
 				options.name,
-				opt.path,
+				rootPath, // Usar rootPath definido anteriormente
 				options.cleaning.files,
 				false
 			);
@@ -1108,48 +1700,104 @@ class Home {
 			);
 		}
 
-		launch.Launch(opt);
-		infoStarting.innerHTML = `Verificando archivos...`;
-		progressBar.value = 0;
+	launcher.launch(opt);
+		
+		
+		
+		infoStarting.innerHTML = localization.t('home.verifying_files');
+		//barra de carga indeterminada
+		this.setProgressBarIndeterminate();
 
-		launch.on("extract", (extract) => {
+		launcher.on("extract", (extract) => {
+			console.log('Extract event received:', extract);
 			ipcRenderer.send("main-window-progress-load");
-			console.log(extract);
+			infoStarting.innerHTML = localization.t('home.extracting_files');
+		});
+		// emitir todos los conteniddos de el evento progress
+		// no solo el porcentaje
+		launcher.on("progress", (type, task, total) => {
+			if (type === "assets") {
+				// Validar que los valores sean números finitos válidos
+				const safeTask = (typeof task === 'number' && isFinite(task)) ? Math.max(0, task) : 0;
+				const safeTotal = (typeof total === 'number' && isFinite(total)) ? Math.max(1, total) : 1;
+				const safePercentage = safeTotal > 0 ? ((safeTask / safeTotal) * 100).toFixed(0) : '0';
+				
+				infoStarting.innerHTML = `${localization.t('home.downloading_assets')} ${safePercentage}% (${safeTask}/${safeTotal})`;
+				ipcRenderer.send("main-window-progress", { progress: safeTask, size: safeTotal });
+				this.setProgressBarDeterminate(safeTask, safeTotal);
+			} else if (type === "assets-copy") {
+				// Validar que los valores sean números finitos válidos
+				const safeTask = (typeof task === 'number' && isFinite(task)) ? Math.max(0, task) : 0;
+				const safeTotal = (typeof total === 'number' && isFinite(total)) ? Math.max(1, total) : 1;
+				const safePercentage = safeTotal > 0 ? ((safeTask / safeTotal) * 100).toFixed(0) : '0';
+				infoStarting.innerHTML = `${localization.t('home.copying_assets')} ${safePercentage}% (${safeTask}/${safeTotal})`;
+				ipcRenderer.send("main-window-progress", { progress: safeTask, size: safeTotal });
+				this.setProgressBarDeterminate(safeTask, safeTotal);
+			} else if (type === "natives") {
+				// Validar que los valores sean números finitos válidos
+				const safeTask = (typeof task === 'number' && isFinite(task)) ? Math.max(0, task) : 0;
+				const safeTotal = (typeof total === 'number' && isFinite(total)) ? Math.max(1, total) : 1;
+				const safePercentage = safeTotal > 0 ? ((safeTask / safeTotal) * 100).toFixed(0) : '0';
+				infoStarting.innerHTML = `${localization.t('home.downloading_natives')} ${safePercentage}% (${safeTask}/${safeTotal})`;
+				ipcRenderer.send("main-window-progress", { progress: safeTask, size: safeTotal });
+				this.setProgressBarDeterminate(safeTask, safeTotal);
+			} else {
+				infoStarting.innerHTML = `${localization.t('home.verifying')}...`;
+				ipcRenderer.send("main-window-progress-load");
+				//barra de carga indeterminada
+				this.setProgressBarIndeterminate();
+			}
 		});
 
-		launch.on("progress", (progress, size) => {
-			infoStarting.innerHTML = `Descargando... ${(
-				(progress / size) *
-				100
-			).toFixed(0)}%`;
-			ipcRenderer.send("main-window-progress", { progress, size });
-			progressBar.value = progress;
-			progressBar.max = size;
+
+		launcher.on("download_status", (name, type, current, total) => {
+			if (type === "version-jar") {
+				infoStarting.innerHTML = `${localization.t('home.downloading_mc_version')} ${name}... (${current}/${total})`;
+				ipcRenderer.send("main-window-progress", { progress: current, size: total });
+				this.setProgressBarDeterminate(current, total);
+			} else if (type === "asset-json") {
+				infoStarting.innerHTML = `${localization.t('home.downloading_assets_json')} ${name}... (${current}/${total})`;
+				ipcRenderer.send("main-window-progress", { progress: current, size: total });
+				this.setProgressBarDeterminate(current, total);
+			} else if (type === "assets") {
+				infoStarting.innerHTML = `${localization.t('home.downloading_natives')} ${name} (${current}/${total})`;
+				ipcRenderer.send("main-window-progress", { progress: current, size: total });
+				this.setProgressBarDeterminate(current, total);
+			} else if (type === "log4j") {
+				infoStarting.innerHTML = `${localization.t('home.downloading_log4j')} ${name} (${current}/${total})`;
+				ipcRenderer.send("main-window-progress", { progress: current, size: total });
+				this.setProgressBarDeterminate(current, total);
+			} else {
+				infoStarting.innerHTML = `${localization.t('downloading')} ${name} (${current}/${total})`;
+				ipcRenderer.send("main-window-progress", { progress: current, size: total });
+				this.setProgressBarDeterminate(current, total);
+			}
 		});
 
-		launch.on("check", (progress, size) => {
-			infoStarting.innerHTML = `Verificando... ${(
-				(progress / size) *
-				100
-			).toFixed(0)}%`;
-			ipcRenderer.send("main-window-progress", { progress, size });
-			progressBar.value = progress;
-			progressBar.max = size;
+		launcher.on("check", (progress, size) => {
+			// Validar que los valores sean números finitos válidos
+			const safeProgress = (typeof progress === 'number' && isFinite(progress)) ? Math.max(0, progress) : 0;
+			const safeSize = (typeof size === 'number' && isFinite(size)) ? Math.max(1, size) : 1;
+			const safePercentage = safeSize > 0 ? Math.min(100, ((safeProgress / safeSize) * 100)) : 0;
+			
+			infoStarting.innerHTML = `${localization.t('home.verifying')}...`;
+			ipcRenderer.send("main-window-progress", { progress: safeProgress, size: safeSize });
+			this.setProgressBarDeterminate(safeProgress, safeSize);
 		});
 
-		launch.on("data", async (e) => {
+		launcher.on("data", async (e) => {
 			if (typeof e === "string") {
 				console.log(e);
 
 				if (rpcActive) {
 					username = await getUsername();
 					RPC.setActivity({
-						state: `Jugando a ${configClient.instance_selct}`,
+						state: `${localization.t('rpc.playing')} ${configClient.instance_selct}`,
 						startTimestamp: startingTime,
 						largeImageKey: "icon",
 						smallImageKey: `https://minotar.net/helm/${username}/512.png`,
 						smallImageText: username,
-						largeImageText: pkg.preductname,
+						largeImageText: pkg.productname,
 						instance: true,
 					});
 				}
@@ -1200,7 +1848,7 @@ class Home {
 			if (!modsApplied) {
 				modsApplied = true;
 				try {
-					infoStarting.innerHTML = "Aplicando mods opcionales...";
+					infoStarting.innerHTML = localization.t('home.applying_optional_mods');
 					await this.applyOptionalMods(options.name);
 					console.log(`Mods opcionales aplicados para: ${options.name}`);
 				} catch (error) {
@@ -1232,52 +1880,33 @@ class Home {
 			}
 
 			if (!musicMuted && musicPlaying) {
-				musicPlaying = false;
+				musicMuted = false;
 				fadeOutAudio();
 			}
-			progressBar.style.display = "none";
+			this.hideProgressBar();
 			closeGameButton.style.display = "block";
-
-			if (configClient.launcher_config.closeLauncher == "close-launcher") {
-				ipcRenderer.send("main-window-hide");
-			}
 
 			if (!playing) {
 				playing = true;
 				playMSG(configClient.instance_selct);
-
 				removeUserFromQueue(hwid);
+				if (configClient.launcher_config.closeLauncher == "close-launcher") {
+					ipcRenderer.send("main-window-hide");
+				}
 			}
 
 			ipcRenderer.send("main-window-progress-load");
-			infoStarting.innerHTML = `Jugando...`;
+			infoStarting.innerHTML = localization.t('home.playing');
 		});
 
-		launch.on("estimated", (time) => {
-			let hours = Math.floor(time / 3600);
-			let minutes = Math.floor((time - hours * 3600) / 60);
-			let seconds = Math.floor(time - hours * 3600 - minutes * 60);
-			console.log(
-				`Tiempo de descarga estimado: ${hours}h ${minutes}m ${seconds}s`
-			);
-		});
-
-		launch.on("speed", (speed) => {
-			console.log(
-				`Velocidad de descarga: ${(speed / 1067008).toFixed(2)} Mb/s`
-			);
-		});
-
-		launch.on("patch", (patch) => {
+		launcher.on("patch", (patch) => {
 			console.log(patch);
 			ipcRenderer.send("main-window-progress-load");
-			infoStarting.innerHTML = `Parcheando...`;
+			infoStarting.innerHTML = localization.t('home.patching');
 		});
 
-		launch.on("close", async (code) => {
-			if (configClient.launcher_config.closeLauncher == "close-launcher") {
-				ipcRenderer.send("main-window-show");
-			}
+		launcher.on("close", async (code) => {
+			setGameFinished();
 
 			this.notification();
 			if (!musicMuted && !musicPlaying) {
@@ -1288,11 +1917,15 @@ class Home {
 			playInstanceBTN.style.display = "flex";
 			instanceSelectBTN.disabled = false;
 			instanceSelectBTN.classList.remove("disabled");
-			infoStarting.innerHTML = `Cerrando...`;
+			infoStarting.innerHTML = localization.t('home.closing');
 			console.log("Close");
 
 			if (closeGameButton) {
 				closeGameButton.style.display = "none";
+			}
+
+			if (configClient.launcher_config?.closeLauncher == "close-launcher") {
+				ipcRenderer.send("main-window-show");
 			}
 
 			this.enablePlayButton();
@@ -1319,7 +1952,7 @@ class Home {
 					state: `En el launcher`,
 					startTimestamp: startingTime,
 					largeImageKey: "icon",
-					largeImageText: pkg.preductname,
+					largeImageText: pkg.productname,
 					instance: true,
 				}).catch();
 				playquitMSG(configClient.instance_selct);
@@ -1327,80 +1960,159 @@ class Home {
 			}
 		});
 
-		launch.on("error", async (err) => {
+		launcher.on("error", async (err) => {
+			console.error("Error del launcher:", err);
 			removeUserFromQueue(hwid);
 
-			if (typeof err.error === "undefined") {
-				if (configClient.launcher_config.closeLauncher == "close-launcher") {
-					ipcRenderer.send("main-window-show");
-				}
-				if (rpcActive) {
-					username = await getUsername();
-					RPC.setActivity({
-						state: `En el launcher`,
-						startTimestamp: startingTime,
-						largeImageKey: "icon",
-						smallImageKey: `https://minotar.net/helm/${username}/512.png`,
-						smallImageText: username,
-						largeImageText: pkg.preductname,
-						instance: true,
-					}).catch();
-				}
+			// Marcar que el juego ha terminado debido a error
+			setGameStopped();
+			console.log("❌ Error en el launcher, Java liberado");
 
-				/* // Handle undefined error case with patch toolkit option
-                const errorDialog = new popup();
-                errorDialog.openDialog({
-                    title: 'Error al iniciar el juego',
-                    content: 'Se ha producido un error al iniciar el juego. ¿Quieres ejecutar el toolkit de parches para intentar solucionarlo?',
-                    options: true,
-                    callback: (result) => {
-                        if (result === 'accept') {
-                            if (window.launcher && typeof window.launcher.runPatchToolkit === 'function') {
-                                window.launcher.runPatchToolkit();
-                            } else {
-                                patchLoader();
-                            }
-                        }
-                    }
-                }); */
-			} else {
-				let popupError = new popup();
-				popupError.openPopup({
-					title: "Error",
-					content: err.error,
-					color: "red",
-					options: true,
-				});
-
-				if (configClient.launcher_config.closeLauncher == "close-launcher") {
-					ipcRenderer.send("main-window-show");
-				}
-				ipcRenderer.send("main-window-progress-reset");
-				if (!musicMuted && !musicPlaying) {
-					musicPlaying = true;
-					setBackgroundMusic(options.backgroundMusic);
-				}
-				infoStartingBOX.style.display = "none";
-				playInstanceBTN.style.display = "flex";
+			// Restablecer estado de UI
+			this.enablePlayButton();
+			if (playInstanceBTN) playInstanceBTN.style.display = "flex";
+			if (infoStartingBOX) infoStartingBOX.style.display = "none";
+			if (instanceSelectBTN) {
 				instanceSelectBTN.disabled = false;
 				instanceSelectBTN.classList.remove("disabled");
-				infoStarting.innerHTML = `Verificando...`;
-				this.notification();
-
-				this.enablePlayButton();
-
-				if (rpcActive) {
-					username = getUsername();
-					RPC.setActivity({
-						state: `En el launcher`,
-						smallImageKey: "verificado",
-						largeImageKey: "icon",
-						largeImageText: pkg.preductname,
-						instance: true,
-					}).catch();
+			}
+			if (closeGameButton) closeGameButton.style.display = "none";
+			
+			// Limpiar progreso
+			ipcRenderer.send("main-window-progress-reset");
+			
+			// Restablecer música
+			let configClient = await this.db.readData("configClient").catch(() => ({}));
+			let musicMuted = configClient.launcher_config?.music_muted;
+			if (!musicMuted && !musicPlaying) {
+				musicPlaying = true;
+				if (options?.backgroundMusic) {
+					setBackgroundMusic(options.backgroundMusic);
 				}
 			}
+			
+			// Mostrar launcher si estaba oculto
+			if (configClient.launcher_config?.closeLauncher == "close-launcher") {
+				ipcRenderer.send("main-window-show");
+			}
+
+			// Determinar tipo de error y mensaje apropiado
+			let errorTitle = "Error al Iniciar el Juego";
+			let errorContent = "Ha ocurrido un error inesperado al iniciar el juego.";
+			
+			if (typeof err.error === "undefined") {
+				// Error sin mensaje específico - posiblemente problema de configuración
+				errorTitle = "Error de Configuración";
+				errorContent = `El juego no pudo iniciarse debido a un problema de configuración.<br><br>Posibles causas:<br>- Archivos del juego corruptos o faltantes<br>- Configuración de Java incorrecta<br>- Problemas con ${options.loadder.loadder_type}<br>- Falta de memoria RAM<br>Si el problema persiste, contacta al soporte técnico.`;
+			} else {
+				// Error con mensaje específico
+				let originalError = err.error;
+				
+				// Categorizar errores comunes
+				if (originalError.includes('OutOfMemoryError') || originalError.includes('heap')) {
+					errorTitle = "Error de Memoria";
+					errorContent = `El juego se quedó sin memoria RAM.<br><br>Soluciones:<br>- Incrementa la memoria máxima de Java en Configuración<br>- Cierra otros programas que consuman memoria<br>- Usa menos mods o un modpack más ligero<br>Error técnico: ${originalError}`;
+				} else if (originalError.includes('java') || originalError.includes('JVM')) {
+					errorTitle = "Error de Java";
+					errorContent = `Problema con la instalación de Java.<br><br>Soluciones:<br>- Verifica que Java esté instalado correctamente<br>- Reinstala Java desde el sitio oficial<br>- Verifica la ruta de Java en Configuración<br>Error técnico: ${originalError}`;
+				} else if (originalError.includes('connection') || originalError.includes('network')) {
+					errorTitle = "Error de Conexión";
+					errorContent = `No se pudo conectar al servidor.<br><br>Soluciones:<br>- Verifica tu conexión a internet<br>- El servidor puede estar temporalmente no disponible<br>- Verifica que no tengas firewall bloqueando el juego<br>Error técnico: ${originalError}`;
+				} else if (originalError.includes('mod') || originalError.includes('forge') || originalError.includes('fabric')) {
+					errorTitle = "Error de Mods";
+					errorContent = `Problema con mods o el mod loader.<br><br>Soluciones:<br>- Verifica que todos los mods sean compatibles<br>- Verifica que ${options.loadder.loadder_type} sea la versión correcta<br>- Intenta desactivar mods opcionales<br>Error técnico: ${originalError}`;
+				} else if (originalError.includes('file') || originalError.includes('path')) {
+					errorTitle = "Error de Archivos";
+					errorContent = `Problema con archivos del juego.<br><br>Soluciones:<br>- Ejecuta el launcher como administrador<br>- Verifica permisos de la carpeta del juego<br>- Verifica que hay suficiente espacio en disco<br>Error técnico: ${originalError}`;
+				} else {
+					errorContent = `${originalError}<br><br>Si el problema persiste, contacta al soporte técnico.`;
+				}
+			}
+
+			// Actualizar Discord RPC
+			if (rpcActive) {
+				try {
+					let username = await getUsername();
+					RPC.setActivity({
+						state: `En el launcher`,
+						largeImageKey: "icon",
+						largeImageText: pkg.productname,
+						instance: true,
+					}).catch();
+				} catch (rpcError) {
+					console.error("Error al actualizar Discord RPC:", rpcError);
+				}
+			}
+
+			// Mostrar popup de error
+			let popupError = new popup();
+			popupError.openPopup({
+				title: errorTitle,
+				content: errorContent,
+				color: "red",
+				options: true
+			});
+
+			// Resetear notificación y estado
+			this.notification();
+			infoStarting.innerHTML = `${localization.t('home.verifying')}...`;
 		});
+		
+		} catch (error) {
+			console.error("Error fatal en startGame:", error);
+			
+			// Restablecer el estado de la UI
+			this.enablePlayButton();
+			const playInstanceBTN = document.querySelector(".play-instance");
+			const infoStartingBOX = document.querySelector(".info-starting-game");
+			const instanceSelectBTN = document.querySelector(".instance-select");
+			const closeGameButton = document.querySelector(".force-close-button");
+			
+			if (playInstanceBTN) playInstanceBTN.style.display = "flex";
+			if (infoStartingBOX) infoStartingBOX.style.display = "none";
+			if (instanceSelectBTN) {
+				instanceSelectBTN.disabled = false;
+				instanceSelectBTN.classList.remove("disabled");
+			}
+			if (closeGameButton) closeGameButton.style.display = "none";
+			
+			// Limpiar barra de progreso
+			ipcRenderer.send("main-window-progress-reset");
+			
+			// Restablecer música si estaba silenciada
+			let configClient = await this.db.readData("configClient").catch(() => ({}));
+			let musicMuted = configClient.launcher_config?.music_muted;
+			if (!musicMuted && !musicPlaying) {
+				musicPlaying = true;
+				if (options?.backgroundMusic) {
+					setBackgroundMusic(options.backgroundMusic);
+				}
+			}
+			
+			// Mostrar popup de error
+			let popupError = new popup();
+			popupError.openPopup({
+				title: "Error Fatal",
+				content: `Ha ocurrido un error inesperado al iniciar el juego:\n\n${error.message}\n\nRevisa la consola para más detalles.`,
+				color: "red",
+				options: true,
+			});
+			
+			// Limpiar Discord RPC si estaba activo
+			if (rpcActive) {
+				try {
+					let username = await getUsername();
+					RPC.setActivity({
+						state: `En el launcher`,
+						largeImageKey: "icon",
+						largeImageText: pkg.productname,
+						instance: true,
+					}).catch();
+				} catch (rpcError) {
+					console.error("Error al actualizar Discord RPC:", rpcError);
+				}
+			}
+		}
 	}
 
 	async applyOptionalMods(instanceName) {
@@ -1525,11 +2237,11 @@ class Home {
 								.querySelector(".info-starting-game")
 								.removeChild(cancelButton);
 						}
-						infoStarting.innerHTML = `Preparando lanzamiento...`;
+						infoStarting.innerHTML = localization.t('home.preparing_launch');
 						resolve({ cancelled: false });
 						return;
 					} else if (data.status === "on_queue") {
-						infoStarting.innerHTML = `En cola, posición: ${data.position} / ${data.total_in_queue}`;
+						infoStarting.innerHTML = `${localization.t('home.queue_position')}: ${data.position} / ${data.total_in_queue}`;
 
 						if (!cancelled) {
 							setTimeout(checkStatus, 30000);
@@ -1537,7 +2249,7 @@ class Home {
 					} else {
 						throw new Error(`Estado de cola desconocido: ${data.status}`);
 					}
-				} catch (error) {
+							} catch (error) {
 					if (
 						document.querySelector(".info-starting-game").contains(cancelButton)
 					) {
@@ -1795,6 +2507,12 @@ class Home {
 			configClient.instance_selct = instanceName;
 			await this.db.updateData("configClient", configClient);
 
+			// Clear MinecraftStatus cache when switching instances
+			if (oldInstance !== instanceName) {
+				console.log('Clearing server status cache due to instance change');
+				MinecraftStatus.clearCache();
+			}
+
 			let instance = await config
 				.getInstanceList()
 				.then((instances) => instances.find((i) => i.name === instanceName));
@@ -1989,12 +2707,12 @@ class Home {
 
 		const addInstanceButton = document.querySelector(".add-instance");
 		if (addInstanceButton) {
-			this.addTooltipToElement(addInstanceButton, "Añadir instancia");
+			this.addTooltipToElement(addInstanceButton, localization.t('tooltips.add_instance'));
 		}
 
 		const instanceSelectButton = document.querySelector(".instance-select");
 		if (instanceSelectButton) {
-			this.addTooltipToElement(instanceSelectButton, "Seleccionar instancia");
+			this.addTooltipToElement(instanceSelectButton, localization.t('tooltips.select_instance'));
 		}
 
 		const musicButton = document.querySelector(".action-button:nth-child(1)");
@@ -2003,21 +2721,21 @@ class Home {
 				musicButton
 					.querySelector(".music-btn")
 					.classList.contains("icon-speaker-on")
-					? "Silenciar música"
-					: "Activar música"
+					? localization.t('tooltips.mute_music')
+					: localization.t('tooltips.play_music')
 			);
 		}
 
 		const modsButton = document.querySelector(".action-button:nth-child(2)");
 		if (modsButton) {
-			this.addTooltipToElement(modsButton, "Gestionar mods");
+			this.addTooltipToElement(modsButton, localization.t('tooltips.manage_mods'));
 		}
 
 		const settingsButton = document.querySelector(
 			".action-button:nth-child(3)"
 		);
 		if (settingsButton) {
-			this.addTooltipToElement(settingsButton, "Configuración");
+			this.addTooltipToElement(settingsButton, localization.t('tooltips.settings'));
 		}
 	}
 
@@ -2063,7 +2781,7 @@ class Home {
 
 			const closeGameButton = document.createElement("div");
 			closeGameButton.className = "force-close-button";
-			closeGameButton.innerHTML = "Cerrar Juego";
+			closeGameButton.innerHTML = localization.t('home.close_game');
 			closeGameButton.style.display = "none";
 
 			closeGameButton.addEventListener("click", () => this.closeRunningGame());
@@ -2081,9 +2799,9 @@ class Home {
 		try {
 			const closeGamePopup = new popup();
 			closeGamePopup.openDialog({
-				title: "Cerrar juego",
+				title: localization.t('home.close_game'),
 				content:
-					"¿Estás seguro de que quieres cerrar el juego actual? Se perderá todo progreso no guardado.",
+					localization.t('home.close_game_confirmation'),
 				options: true,
 				callback: async (result) => {
 					if (result === "cancel") {
@@ -2093,8 +2811,8 @@ class Home {
 					try {
 						console.log("Intentando cerrar el proceso de Minecraft...");
 						closeGamePopup.openPopup({
-							title: "Cerrando juego...",
-							content: "Por favor, espera mientras se cierra el juego.",
+							title: localization.t('home.closing'),
+							content: localization.t('home.closing_game_info'),
 							color: "var(--color)",
 							options: false,
 						});
@@ -2106,8 +2824,8 @@ class Home {
 
 							const successPopup = new popup();
 							successPopup.openPopup({
-								title: "Juego cerrado",
-								content: "El juego se ha cerrado correctamente.",
+								title: localization.t('home.game_closed'),
+								content: localization.t('home.game_closed_info'),
 								color: "var(--color)",
 								options: true,
 							});
@@ -2118,7 +2836,7 @@ class Home {
 							errorPopup.openPopup({
 								title: "Error",
 								content:
-									"No se pudo cerrar el juego. Por favor, ciérralo manualmente.",
+									localization.t('home.game_closed_error'),
 								color: "red",
 								options: true,
 							});
@@ -2128,10 +2846,10 @@ class Home {
 
 						const errorPopup = new popup();
 						errorPopup.openPopup({
-							title: "Error",
+							title: localization.t('launcher.error'),
 							content:
-								"No se pudo cerrar el juego. Intenta cerrarlo manualmente.",
-							color: "red",
+								localization.t('home.game_closed_error'),
+						 color: "red",
 							options: true,
 						});
 					}
@@ -2140,6 +2858,90 @@ class Home {
 		} catch (error) {
 			console.error("Error al intentar cerrar el juego:", error);
 		}
+	}
+
+	// Funciones para manejar los estados de la barra de progreso
+	setProgressBarIndeterminate() {
+		const progressBar = document.querySelector(".progress-bar");
+		if (progressBar) {
+			progressBar.classList.add("indeterminate");
+			progressBar.removeAttribute("value");
+			progressBar.removeAttribute("max");
+		}
+	}
+
+	setProgressBarDeterminate(value = 0, max = 100) {
+		const progressBar = document.querySelector(".progress-bar");
+		if (progressBar) {
+			progressBar.classList.remove("indeterminate");
+			progressBar.value = value;
+			progressBar.max = max;
+		}
+	}
+
+	hideProgressBar() {
+		const progressBar = document.querySelector(".progress-bar");
+		if (progressBar) {
+			progressBar.style.display = "none";
+			progressBar.classList.remove("indeterminate");
+		}
+	}
+
+	showProgressBar() {
+		const progressBar = document.querySelector(".progress-bar");
+		if (progressBar) {
+			progressBar.style.display = "block";
+		}
+	}
+
+	// Función para mostrar el popup con estado de carga
+	showInstancePopupWithLoading() {
+		let instancePopup = document.querySelector(".instance-popup");
+		let instancesGrid = document.querySelector(".instances-grid");
+		let skeletonGrid = document.querySelector(".skeleton-grid");
+		let loadingContainer = document.querySelector(".loading-container");
+		let instancesGridContainer = document.querySelector(".instances-grid-container");
+		
+		// Mostrar el popup inmediatamente
+		instancePopup.classList.add("show");
+		
+		// Ocultar el contenedor de instancias reales
+		if (instancesGridContainer) {
+			instancesGridContainer.style.display = "none";
+		}
+		
+		// Limpiar el contenido del instances-grid
+		instancesGrid.innerHTML = "";
+		
+		// Mostrar el skeleton loading y el spinner
+		if (skeletonGrid) {
+			skeletonGrid.style.display = "grid";
+			console.log("Skeleton grid mostrado");
+		}
+		if (loadingContainer) {
+			loadingContainer.style.display = "flex";
+			console.log("Loading container mostrado");
+		}
+	}
+
+	// Función para ocultar el loading y mostrar las instancias reales
+	hideInstanceLoading() {
+		let instancesGrid = document.querySelector(".instances-grid");
+		let skeletonGrid = document.querySelector(".skeleton-grid");
+		let loadingContainer = document.querySelector(".loading-container");
+		let instancesGridContainer = document.querySelector(".instances-grid-container");
+		
+		// Ocultar elementos de loading
+		if (skeletonGrid) skeletonGrid.style.display = "none";
+		if (loadingContainer) loadingContainer.style.display = "none";
+		
+		// Mostrar el contenedor de instancias reales
+		if (instancesGridContainer) {
+			instancesGridContainer.style.display = "flex";
+		}
+		
+		// Mostrar el grid de instancias reales
+		instancesGrid.style.display = "grid";
 	}
 }
 export default Home;

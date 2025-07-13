@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miguelki Network MC Launcher - Consola</title>
+    <link rel="stylesheet" href="assets/css/font.css">
+    <link rel="stylesheet" href="assets/css/theme.css">
+    <link rel="stylesheet" href="assets/css/console.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="console-container">
+        <div class="console-header">
+            <div class="console-title">
+                <i class="fa-solid fa-terminal" style="color: var(--color);"></i>
+                <span>Consola</span>
+                <span id="console-version-info" class="console-base-version"></span>
+            </div>
+            <div class="console-actions">
+                <button class="console-btn" id="clear-logs-btn" title="Limpiar logs">
+                    <i class="fa-solid fa-broom"></i>
+                </button>
+                <button class="console-btn" id="export-logs-btn" title="Exportar logs">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+                <button class="console-btn" id="toggle-autoscroll-btn" title="Pausar auto-scroll">
+                    <i class="fa-solid fa-pause"></i>
+                </button>
+            </div>
+        </div>
+        
+        <div class="console-main">
+            <div class="logger-container" id="launcher">
+                <div class="logger-content" id="logger-content">
+                    <div class="log-entry info">
+                        <span class="log-level">[INFO]</span>
+                        <span class="log-message">Consola iniciada correctamente</span>
+                    </div>
+                </div>
+                <div class="scroll-to-bottom" id="scroll-to-bottom-btn">
+                    <i class="fa-solid fa-arrow-down"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="console-footer">
+            <div class="console-hwid-container">
+                <span>ID:</span>
+                <div class="console-hwid" id="console-hwid">Cargando...</div>
+                <div class="copy-console-hwid" id="copy-hwid-btn" title="Copiar ID">
+                    <i class="fa-solid fa-copy"></i>
+                </div>
+            </div>
+            <div class="console-actions-footer">
+                <button class="console-btn" id="report-issue-btn" title="Reportar problema">
+                    <i class="fa-solid fa-bug"></i>
+                    <span>Reportar Problema</span>
+                </button>
+                <button class="console-btn" id="patch-toolkit-btn" title="Toolkit de parches" style="display: none;">
+                    <i class="fa-solid fa-wrench"></i>
+                    <span>Toolkit de Parches</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/console.js"></script>
+</body>
+</html>

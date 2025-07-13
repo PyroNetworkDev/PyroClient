@@ -39,37 +39,21 @@
                 <div></div>
                 <div></div>
               </div>
-            <div class="loading-text">Iniciando Launcher...</div>
+            <div class="loading-text" data-translate="launcher.starting">Iniciando Launcher...</div>
 
         </div>
-
-        <div class="log-bg">
-        <div class="log">
-          <div class="log-close icon-close"></div>
-          <div class="log-content">
-            <div class="titlev">Consola <span id="base-version-info" class="console-base-version"></span></div>
-            <div class="logger" id="launcher">
-              <div class="content"></div>
-              <div class="scroll-to-bottom"><i class="fa-solid fa-arrow-down"></i></div>
-              <div class="patch-toolkit"></div>
-              <div class="report-issue"></div>
-            </div>
-            <div class="console-hwid-container">ID: <div class="console-hwid">SUPPORTID</div><div class="copy-console-hwid"><i class="fa-solid fa-copy"></i></div></div>
-          </div>
-        </div>
-      </div>
       <div class="terms-modal" style="display:none;">
         <div class="terms-header">
-            <h2>Bienvenido a Pyro Client</h2>
-            <p class="terms-message">Antes de continuar, acepta los términos y condiciones para poder utilizar el software. De lo contrario, el launcher se cerrará y no podrás utilizarlo hasta que los aceptes.</p>
+            <h2 data-translate="terms.title">Bienvenido a Pyro Client</h2>
+            <p class="terms-message" data-translate="terms.content">Antes de continuar, acepta los términos y condiciones para poder utilizar el software. De lo contrario, el launcher se cerrará y no podrás utilizarlo hasta que los aceptes.</p>
         </div>
         <div class="terms-container"></div>
         <div class="terms-buttons">
             <div class="tooltip-container">
-                <button class="accept-terms-btn" disabled>Aceptar</button>
-                <span class="tooltip-text">Lee todos los términos antes de aceptar</span>
+                <button class="accept-terms-btn" disabled data-translate="buttons.accept">Aceptar</button>
+                <span class="tooltip-text" data-translate="terms.read_all">Lee todos los términos antes de aceptar</span>
             </div>
-            <button class="decline-terms-btn">Rechazar y cerrar launcher</button>
+            <button class="decline-terms-btn" data-translate="terms.reject">Rechazar y cerrar launcher</button>
         </div>
     </div>
     </div>
@@ -92,38 +76,48 @@
         <div class="setup-modal" style="display:none;">
           <div class="setup-container">
             <div class="setup-header">
-              <h2>Configuración Inicial de Pyro Client</h2>
-              <p>Bienvenido! Vamos a configurar algunos parámetros para optimizar tu experiencia.</p>
+              <h2 data-translate="setup.welcome_title">Configuración Inicial de Pyro Client</h2>
+              <p data-translate="setup.welcome_message">Bienvenido! Vamos a configurar algunos parámetros para optimizar tu experiencia.</p>
               <div class="setup-step-indicator">
-                <span class="step active-step" data-step="1">1</span>
+                <span class="step active-step" data-step="0">🌐</span>
+                <span class="step-line"></span>
+                <span class="step" data-step="1">1</span>
                 <span class="step-line"></span>
                 <span class="step" data-step="2">2</span>
                 <span class="step-line"></span>
                 <span class="step" data-step="3">3</span>
-                <span class="step-line"></span>
-                <span class="step" data-step="4">4</span>
               </div>
             </div>
             
             <div class="setup-content">
+              <!-- Language Selection (Step 0) -->
+              <div class="setup-section active" id="setup-step-0">
+                <h3 data-translate="setup.step_0">Selección de Idioma</h3>
+                <p data-translate="setup.language_info">Selecciona tu idioma preferido. Esta configuración se puede cambiar más tarde en los ajustes del launcher.</p>
+                <div class="setup-language-selector">
+                  <div class="setup-language-options">
+                    <!-- Las opciones se llenarán dinámicamente -->
+                  </div>
+                </div>
+              </div>
+
               <!-- Performance Mode (Step 1) -->
-              <div class="setup-section active" id="setup-step-1">
-                <h3>Modo de Rendimiento</h3>
-                <p>Activa esta opción para mejorar el rendimiento en equipos con recursos limitados.</p>
+              <div class="setup-section next" id="setup-step-1">
+                <h3 data-translate="setup.step_1">Modo de Rendimiento</h3>
+                <p data-translate="setup.performance_info">Activa esta opción para mejorar el rendimiento en equipos con recursos limitados.</p>
                 <div class="setup-checkbox-container">
                   <input type="checkbox" id="setup-performance-mode" class="setup-checkbox">
-                  <label for="setup-performance-mode">Activar modo de rendimiento</label>
+                  <label for="setup-performance-mode" data-translate="setup.enable_performance_mode">Activar modo de rendimiento</label>
                 </div>
-                <p class="setup-note">
+                <p class="setup-note" data-translate="setup.performance_note">
                   Esta opción desactiva los fondos de video animados y las transiciones visuales para reducir el consumo de recursos.
                 </p>
               </div>
 
-
               <!-- RAM Configuration (Step 2) -->
               <div class="setup-section next" id="setup-step-2">
-                <h3>Configuración de Memoria RAM</h3>
-                <p>Memoria RAM Total: <span id="setup-total-ram">8 GB</span></p>
+                <h3 data-translate="setup.step_2">Configuración de Memoria RAM</h3>
+                <p><span data-translate="setup.total_ram">RAM Total:</span><span id="setup-total-ram">8 GB</span></p>
                 
                 <div class="setup-ram-config">
                   <div class="setup-ram-slider-container">
@@ -141,56 +135,40 @@
                   </div>
                   <div class="setup-ram-info-block">
                     <div class="setup-ram-row">
-                      <b>RAM Mínima:</b> <span id="setup-ram-min-display">2 GB</span>
+                      <b data-translate="setup.minimum_ram">RAM Mínima:</b> <span id="setup-ram-min-display">2 GB</span>
                     </div>
                     <div class="setup-ram-row">
-                      <b>RAM Máxima:</b> <span id="setup-ram-max-display">4 GB</span>
+                      <b data-translate="setup.maximum_ram">RAM Máxima:</b> <span id="setup-ram-max-display">4 GB</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Download Settings (Step 3) -->
+              <!-- Launcher Behavior (Step 3) -->
               <div class="setup-section next" id="setup-step-3">
-                <h3>Configuración de Descarga</h3>
-                <p>Define el número máximo de archivos que se pueden descargar simultáneamente.</p>
-                <div class="setup-download-container">
-                  <label for="setup-max-downloads">Número máximo de descargas simultáneas:</label>
-                  <div class="setup-download-input-container">
-                    <input type="number" id="setup-max-downloads" class="setup-download-input" value="3" min="1" max="20">
-                    <!-- El mensaje de error aparecerá aquí, justo después del input -->
-                  </div>
-                </div>
-                <p class="setup-note">
-                  Un valor más alto puede acelerar las descargas, pero puede causar problemas en conexiones lentas o inestables. Se recomienda entre 3-5 para la mayoría de las conexiones. El máximo permitido es 20.
-                </p>
-              </div>
-
-              <!-- Launcher Behavior (Step 4) -->
-              <div class="setup-section next" id="setup-step-4">
-                <h3>Comportamiento del Launcher</h3>
+                <h3 data-translate="setup.step_3">Comportamiento del Launcher</h3>
                 <p>Selecciona cómo quieres que se comporte el launcher al iniciar el juego:</p>
                 <div class="setup-launcher-behavior-box">
                   <div class="setup-launcher-behavior-option selected" data-value="close-launcher">
                     <div class="setup-launcher-behavior-radio"></div>
-                    <div class="setup-launcher-behavior-label">Cerrar el launcher después de iniciar el juego (Recomendado)</div>
+                    <div class="setup-launcher-behavior-label" data-translate="setup.close_launcher">Cerrar el launcher después de iniciar el juego (Recomendado)</div>
                   </div>
                   <div class="setup-launcher-behavior-option" data-value="close-none">
                     <div class="setup-launcher-behavior-radio"></div>
-                    <div class="setup-launcher-behavior-label">Mantener abierto el launcher</div>
+                    <div class="setup-launcher-behavior-label" data-translate="setup.keep_launcher_open">Mantener abierto el launcher</div>
                   </div>
                   <div class="setup-launcher-behavior-option" data-value="close-all">
                     <div class="setup-launcher-behavior-radio"></div>
-                    <div class="setup-launcher-behavior-label">Cerrar el juego al cerrar el launcher</div>
+                    <div class="setup-launcher-behavior-label" data-translate="setup.close_all">Cerrar el juego al cerrar el launcher</div>
                   </div>
                 </div>
               </div>
             </div>
             
             <div class="setup-buttons">
-              <button class="setup-prev-btn" style="display:none">Anterior</button>
-              <button class="setup-next-btn">Siguiente</button>
-              <button class="setup-finish-btn" style="display:none">Finalizar</button>
+              <button class="setup-prev-btn" style="display:none" data-translate="buttons.previous">Anterior</button>
+              <button class="setup-next-btn" data-translate="buttons.next">Siguiente</button>
+              <button class="setup-finish-btn" style="display:none" data-translate="buttons.finish">Finalizar</button>
             </div>
           </div>
         </div>

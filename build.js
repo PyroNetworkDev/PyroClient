@@ -6,7 +6,7 @@ const nodeFetch = require('node-fetch')
 const png2icons = require('png2icons');
 const Jimp = require('jimp');
 
-const { preductname } = require('./package.json');
+const { productname } = require('./package.json');
 
 class Index {
     async init() {
@@ -42,7 +42,7 @@ class Index {
                 if (extFile == 'js') {
                     let code = fs.readFileSync(path, "utf8");
                     code = code.replace(/src\//g, 'app/');
-                    if (this.obf && fileName !== 'MKLib.js' && fileName !== 'encrypted-storage.js') {
+                    if (this.obf && fileName !== 'MKLib.js' && fileName !== 'encrypted-storage.js' && fileName !== 'instance-manager.js') {
                         await new Promise((resolve) => {
                             console.log(`Obfuscate ${path}`);
                             let obf = JavaScriptObfuscator.obfuscate(code, { optionsPreset: 'high-obfuscation', disableConsoleOutput: false });
@@ -113,8 +113,8 @@ class Index {
         builder.build({
             config: {
                 generateUpdatesFilesForAllChannels: false,
-                appId: preductname,
-                productName: preductname,
+                appId: productname,
+                productName: productname,
                 copyright: 'Copyright © 2020-2025 Miguelki & Luuxis',
                 artifactName: "${productName}-${os}-${arch}.${ext}",
                 extraMetadata: { main: 'app/app.js' },

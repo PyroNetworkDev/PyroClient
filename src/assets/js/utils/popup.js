@@ -4,6 +4,7 @@
  */
 
 const { ipcRenderer } = require('electron');
+import { localization } from '../utils.js'
 
 export default class popup {
     constructor() {
@@ -60,6 +61,8 @@ export default class popup {
             this.acceptButton.style.order = '1';
         }
         const cancelButton = document.getElementById('cancelButton');
+        // If cancelText is not provided, use a default value
+        cancelButton.innerHTML = info.cancelText || localization.t('buttons.cancel');
         cancelButton.addEventListener('click', () => {
             this.closePopup();
             info.callback('cancel');
@@ -67,6 +70,7 @@ export default class popup {
         this.popupOptions.appendChild(cancelButton);
 
         const acceptButton = document.getElementById('acceptButton');
+        acceptButton.innerHTML = info.acceptText || localization.t('buttons.accept');
         acceptButton.addEventListener('click', () => {
             this.closePopup();
             info.callback('accept');

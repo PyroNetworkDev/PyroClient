@@ -34,7 +34,7 @@ function createWindow() {
         windowHeight = 795;
     }
     mainWindow = new BrowserWindow({
-        title: pkg.preductname,
+        title: pkg.productname,
         width: windowWidth,
         height: windowHeight,
         minWidth: 980,

@@ -1,16 +1,16 @@
 <div class="container">
     <div class="settings-header">
-        <h1 class="settings-title">Ajustes</h1>
+        <h1 class="settings-title" data-translate="panels.settings">Ajustes</h1>
         <div class="nav-settings">
             <div class="nav-box">
-                <div id="account" class="nav-settings-btn active-settings-BTN">
+                <div id="account" class="nav-settings-btn active-settings-BTN" data-translate="navigation.accounts">
                     CUENTAS
                 </div>
-                <div id="java" class="nav-settings-btn">JAVA</div>
-                <div id="resolution" class="nav-settings-btn">JUEGO</div>
-                <div id="launcher" class="nav-settings-btn">LAUNCHER</div>
-                <div id="credits" class="nav-settings-btn">INFORMACIÓN</div>
-                <div id="save" class="nav-settings-btn">VOLVER</div>
+                <div id="java" class="nav-settings-btn" data-translate="navigation.java">JAVA</div>
+                <div id="resolution" class="nav-settings-btn" data-translate="navigation.game">JUEGO</div>
+                <div id="launcher" class="nav-settings-btn" data-translate="navigation.launcher">LAUNCHER</div>
+                <div id="credits" class="nav-settings-btn" data-translate="navigation.information">INFORMACIÓN</div>
+                <div id="save" class="nav-settings-btn" data-translate="navigation.back">VOLVER</div>
             </div>
         </div>
     </div>
@@ -18,35 +18,35 @@
     <div class="settings-content">
         <div id="account-tab" class="container-settings active-container-settings">
             <div class="settings-column content-scroll" id="discord-account-column">
-                <div class="titre-tab" id="discord-account-manager-title">Cuenta de Discord</div>
+                <div class="titre-tab" id="discord-account-manager-title" data-translate="accounts.discord_title">Cuenta de Discord</div>
                 <div class="settings-elements-box" id="discord-account-manager" style="margin: 0">
                     <div class="discord-settings">
-                        <p class="discord-username-text" style="margin: 0;">Cuenta de discord vinculada:</p><br>
+                        <p class="discord-username-text" style="margin: 0;" data-translate="accounts.discord_linked">Cuenta de discord vinculada:</p><br>
                         <div class="profile-card">
                             <img src="assets/images/default/profile.png" alt="Perfil de Discord" class="discord-profile-image">
                             <div class="profile-info">
-                                <p class="profile-username">Desconocido</p>
+                                <p class="profile-username" data-translate="accounts.unknown">Desconocido</p>
                             </div>
                         </div>
                         <br />
-                        <p class="discord-logout-warning" style="margin: 0">
+                        <p class="discord-logout-warning" style="margin: 0" data-translate="accounts.logout_warning">
                             Si cierras sesión ahora el launcher se reiniciará.
                         </p>
                         <br />
-                        <div class="discord-logout-btn" style="margin: 0">Cerrar sesión</div>
+                        <div class="discord-logout-btn" style="margin: 0" data-translate="accounts.logout">Cerrar sesión</div>
                     </div>
                 </div>
             </div>
             
             <div class="settings-column">
-                <div class="titre-tab">Cuentas de Minecraft</div>
+                <div class="titre-tab" data-translate="accounts.title">Cuentas de Minecraft</div>
                 <div class="settings-elements-box content-scroll">
                     <div class="accounts-list">
                         <div class="account" id="add">
                             <div class="add-profile">
                                 <div class="icon-account-add"></div>
                             </div>
-                            <div class="add-text-profile">Añadir una cuenta</div>
+                            <div class="add-text-profile" data-translate="accounts.add_account">Añadir una cuenta</div>
                         </div>
                     </div>
                 </div>
@@ -55,17 +55,17 @@
 
         <div id="java-tab" class="container-settings">
             <div class="settings-column content-scroll">
-                <div class="titre-tab">Configurar la RAM</div>
+                <div class="titre-tab" data-translate="java.ram_title">Configurar la RAM</div>
                 <div class="settings-elements-box">
-                    <div class="setting-text">
+                    <div class="setting-text" data-translate="java.ram_info">
                         Definición de la RAM asignada a su juego, una cantidad mayor aumentará
                         el rendimiento de su juego.<br />
                         Tenga en cuenta que debe evitar utilizar una cantidad demasiado grande,
                         ya que podría causar problemas en su PC.
                     </div>
                     <div class="ram-info-block">
-                        <div>RAM total: <span id="total-ram">16 GB</span></div>
-                        <div>RAM disponible: <span id="free-ram">8 GB</span></div>
+                        <div><span data-translate="java.total_ram">RAM total</span>: <span id="total-ram">16 GB</span></div>
+                        <div><span data-translate="java.free_ram">RAM disponible</span>: <span id="free-ram">8 GB</span></div>
                     </div>
                     <div class="memory-slider" min="1" max="8" step="0.5">
                         <span class="slider-touch-left">
@@ -82,31 +82,40 @@
             </div>
             
             <div class="settings-column content-scroll">
-                <div class="titre-tab">Ubicación de Java</div>
+                <div class="titre-tab" data-translate="java.java_path_title">Ubicación de Java</div>
                 <div class="settings-elements-box">
-                    <div class="setting-text">
-                        Para ejecutar Minecraft, el launcher utiliza la versión de Java
-                        directamente proporcionada por el launcher.<br />
-                        Sin embargo, puedes seleccionar tu propia versión de Java, lo que puede
-                        ayudar a corregir algunos errores.
+                    <div class="setting-text" data-translate="java.info">
+                        Para ejecutar Minecraft, el launcher descarga automáticamente la versión de Java 
+                        compatible con cada versión de Minecraft y la almacena en la carpeta 'runtime'.<br />
+                        Sin embargo, puedes seleccionar tu propia versión de Java personalizada si lo prefieres.
+                        
+                        <br /><br />
+                        <strong>💡 Gestión Automática:</strong><br />
+                        • Java 8: Minecraft 1.7 - 1.16.5<br />
+                        • Java 17: Minecraft 1.17 - 1.20.6<br />
+                        • Java 21: Minecraft 1.21+<br />
                     </div>
-                    <div class="java-path-input-text">
+                    <div class="java-path-txt" style="font-size: 0.9rem; color: rgba(255,255,255,0.7); margin: 0.5rem 0; font-family: 'Courier New', monospace;">
+                        Ruta de instalaciones automáticas: Cargando...
+                    </div>
+                    <div class="java-path-input-text" data-translate="java.java_path_launcher">
                         Utilice la versión de java suministrada con el launcher
                     </div>
                     <input type="file" class="java-path-input-file" accept="application/octet-stream" />
                     <div class="java-path-box">
-                        <div class="java-path-set java-path-btn">Cambiar</div>
-                        <div class="java-path-reset java-path-btn">Por defecto</div>
+                        <div class="java-path-set java-path-btn" data-translate="buttons.browse">Cambiar</div>
+                        <div class="java-path-reset java-path-btn" data-translate="buttons.reset">Por defecto</div>
                     </div>
+                    <br><br>
                 </div>
             </div>
         </div>
 
         <div id="resolution-tab" class="container-settings">
             <div class="settings-full-column content-scroll">
-                <div class="titre-tab">Ajustes de resolución de Minecraft</div>
+                <div class="titre-tab" data-translate="game.resolution_title">Ajustes de resolución de Minecraft</div>
                 <div class="settings-elements-box">
-                    <div class="setting-text">
+                    <div class="setting-text" data-translate="game.resolution_info">
                         Define una resolución personalizada para el juego que se adapte a tu
                         pantalla. Por defecto, el juego se inicia en 854 X 480,<br />puede
                         modificar este valor para obtener un confort de juego óptimo. comodidad.
@@ -118,7 +127,7 @@
                             <div class="size-cross"></div>
                             <input type="number" class="height-size input-resolution" style="margin-right: 1rem;"/>
                         </div>
-                        <div class="size-reset size-btn">Por defecto</div>
+                        <div class="size-reset size-btn" data-translate="buttons.reset">Por defecto</div>
                     </div>
                 </div>
             </div>
@@ -126,37 +135,60 @@
 
         <div id="launcher-tab" class="container-settings">
             <div class="settings-column content-scroll">
-                <div class="titre-tab">Rendimiento</div>
+                <div class="titre-tab" data-translate="launcher_settings.language_title">Idioma</div>
                 <div class="settings-elements-box">
-                    <div class="performance-mode-container">
-                        <input type="checkbox" id="performance-mode" class="performance-mode-checkbox">
-                        <label for="performance-mode">Activar modo de rendimiento</label>
+                    <div class="setting-text" data-translate="launcher_settings.language_info">
+                        Selecciona el idioma de la interfaz del launcher. Los cambios se aplicarán inmediatamente.
                     </div>
-                    <div class="performance-mode-info">
-                        El modo de rendimiento desactiva fondos de video y transiciones visuales para reducir el consumo de recursos.
+                    <div class="settings-elements content-center">
+                        <div class="language-selection">
+                            <div class="language-select-btn">
+                                <div class="language-btn-content">
+                                    <span class="flag-icon">🌐</span>
+                                    <span class="language-text">Automático (Sistema)</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="titre-tab">Descargas</div>
+                <div class="titre-tab" data-translate="launcher_settings.performance_title">Rendimiento</div>
                 <div class="settings-elements-box">
-                    <div class="setting-text">
-                        Número máximo de archivos que pueden descargarse simultáneamente. Un número mayor
-                        puede acelerar las descargas pero también puede causar problemas en conexiones
-                        lentas.
+                    <div class="performance-mode-container">
+                        <input type="checkbox" id="performance-mode" class="performance-mode-checkbox">
+                        <label for="performance-mode" data-translate="launcher_settings.enable_performance_mode">Activar modo de rendimiento</label>
                     </div>
-                    <div class="settings-elements content-center">
-                        <input type="number" class="input-max-files" value="3" min="1" max="10" />
-                        <div class="max-files-btn size-btn">Por defecto</div>
+                    <div class="performance-mode-info" data-translate="launcher_settings.performance_mode_info">
+                        El modo de rendimiento desactiva fondos de video y transiciones visuales para reducir el consumo de recursos.
+                    </div>
+                </div>
+
+                <div class="titre-tab" data-translate="launcher_settings.data_management_title">Gestión de datos</div>
+                <div class="settings-elements-box">
+                    <div class="setting-text" data-translate="launcher_settings.data_management_info">
+                        Estas opciones te permiten reiniciar la configuración o eliminar todos los datos del
+                        launcher. Úsalas con precaución.
+                    </div>
+                    <div class="settings-elements content-evenly">
+                        <div class="reset-config-btn data-management-btn">
+                            <i class="fas fa-sync-alt"></i> <span data-translate="launcher_settings.reset_config">Reiniciar configuración</span>
+                        </div>
+                        <div class="delete-assets-btn data-management-btn">
+                            <i class="fas fa-gamepad"></i> <span data-translate="launcher_settings.delete_assets">Eliminar assets del juego</span>
+                        </div>
+                        <div class="delete-all-btn data-management-btn">
+                            <i class="fas fa-trash"></i> <span data-translate="launcher_settings.delete_all">Eliminar todo</span>
+                        </div>
                     </div>
                 </div>
             </div>
             
             <div class="settings-column content-scroll">
-                <div class="titre-tab">
+                <div class="titre-tab" data-translate="launcher_settings.behavior_title">
                     Comportamiento del launcher al arrancar el juego
                 </div>
                 <div class="settings-elements-box">
-                    <div class="setting-text">
+                    <div class="setting-text" data-translate="launcher_settings.behavior_info">
                         Puedes elegir si el launcher se cierra automáticamente o permanece
                         abierto al iniciar el juego.
                     </div>
@@ -164,34 +196,31 @@
                     <div class="settings-elements content-evenly launcher-behavior-box">
                         <div class="launcher-behavior-option" data-value="close-launcher">
                             <div class="launcher-behavior-radio"></div>
-                            <div class="launcher-behavior-label">Cerrar el launcher después de iniciar el juego</div>
+                            <div class="launcher-behavior-label" data-translate="launcher_settings.close_launcher">Cerrar el launcher después de iniciar el juego</div>
                         </div>
                         <div class="launcher-behavior-option" data-value="close-none">
                             <div class="launcher-behavior-radio"></div>
-                            <div class="launcher-behavior-label">Mantener abierto el launcher</div>
+                            <div class="launcher-behavior-label" data-translate="launcher_settings.keep_open">Mantener abierto el launcher</div>
                         </div>
                         <div class="launcher-behavior-option" data-value="close-all">
                             <div class="launcher-behavior-radio"></div>
-                            <div class="launcher-behavior-label">Cerrar el launcher y el juego al cerrar el launcher</div>
+                            <div class="launcher-behavior-label" data-translate="launcher_settings.close_all">Cerrar el launcher y el juego al cerrar el launcher</div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="titre-tab">Gestión de datos</div>
+                
+                <div class="titre-tab" data-translate="launcher_settings.dev_tools_title">Herramientas de desarrollo</div>
                 <div class="settings-elements-box">
-                    <div class="setting-text">
-                        Estas opciones te permiten reiniciar la configuración o eliminar todos los datos del
-                        launcher. Úsalas con precaución.
+                    <div class="setting-text" data-translate="launcher_settings.dev_tools_info">
+                        Herramientas útiles para diagnóstico y desarrollo.
                     </div>
                     <div class="settings-elements content-evenly">
-                        <div class="reset-config-btn data-management-btn">
-                            <i class="fas fa-sync-alt"></i> Reiniciar configuración
+                        <div class="open-console-btn data-management-btn">
+                            <i class="fas fa-terminal"></i> <span data-translate="launcher_settings.open_console">Abrir consola</span>
                         </div>
-                        <div class="delete-assets-btn data-management-btn">
-                            <i class="fas fa-gamepad"></i> Eliminar assets del juego
-                        </div>
-                        <div class="delete-all-btn data-management-btn">
-                            <i class="fas fa-trash"></i> Eliminar todo
+                        <div class="open-logs-folder-btn data-management-btn">
+                            <i class="fas fa-folder"></i> <span data-translate="launcher_settings.open_logs">Abrir carpeta de logs</span>
                         </div>
                     </div>
                 </div>
@@ -200,13 +229,13 @@
         
         <div id="credits-tab" class="container-settings">
             <div class="settings-column content-scroll">
-                <div class="titre-tab">Créditos</div>
+                <div class="titre-tab" data-translate="info_tab.credits">Créditos</div>
                 <div class="settings-elements-box">
                     <div class="credits-container">
                         <div class="credit">
                             <img src="assets/images/credits/miguelki.png" alt="Miguelki" />
                             <h3>Miguelki</h3>
-                            <p class="role">Desarrollador principal</p>
+                            <p class="role" data-translate="info_tab.main_developer">Desarrollador principal</p>
                             <div class="social-icons">
                                 <a href="https://x.com/MiguelkiX30" class="external"><i class="fab fa-x-twitter"></i></a>
                                 <a href="https://github.com/miguelkix30" class="external"><i class="fab fa-github"></i></a>
@@ -217,7 +246,7 @@
                         <div class="credit">
                             <img src="assets/images/credits/luuxis.png" alt="Luuxis" />
                             <h3>Luuxis</h3>
-                            <p class="role">Desarrollador de la base</p>
+                            <p class="role" data-translate="info_tab.base_developer">Desarrollador de la base</p>
                             <div class="social-icons">
                                 <a href="https://github.com/luuxis" class="external"><i class="fab fa-github"></i></a>
                                 <a href="https://discord.com/invite/e9q7Yr2cuQ" class="external"><i
@@ -229,9 +258,23 @@
             </div>
             
             <div class="settings-column content-scroll">
-                <div class="titre-tab">Términos y condiciones</div>
-                <div class="info-container" id="terms-container">
-                    Ha ocurrido un error al cargar los términos y condiciones.
+                <div class="titre-tab" data-translate="info_tab.terms">Términos y condiciones</div>
+                <div class="info-container" id="terms-container" >
+                    <span data-translate="info_tab.terms_error">Ha ocurrido un error al cargar los términos y condiciones.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Popup de selección de idiomas -->
+    <div class="language-popup">
+        <div class="language-selection-tab">
+            <div class="close-popup icon-close"></div>
+            <p><span data-translate="launcher_settings.language_select">Seleccionar idioma</span>:</p>
+            
+            <div class="languages-grid-container">
+                <div class="languages-grid">
+                    <!-- Los idiomas se generarán dinámicamente -->
                 </div>
             </div>
         </div>

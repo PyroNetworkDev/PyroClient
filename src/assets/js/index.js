@@ -84,6 +84,8 @@ class Splash {
         });
 
         ipcRenderer.on('download-progress', (event, progress) => {
+            const percentage = ((progress.transferred / progress.total) * 100).toFixed(0);
+            this.setStatus(`Descargando actualización... ${percentage}%`);
             ipcRenderer.send('update-window-progress', { progress: progress.transferred, size: progress.total });
             this.setProgress(progress.transferred, progress.total);
         });

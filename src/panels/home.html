@@ -3,8 +3,8 @@
         <div class="message-container">
             <img  class="message-icon" src="assets/images/default/steve.png">
             <div class="message-text">
-                <div class="message-title">Notificación</div>
-                <div class="message-content">Esto no deberías de estar viendolo</div> 
+                <div class="message-title" data-translate="notifications.notification">Notificación</div>
+                <div class="message-content" data-translate="messages.error_occurred">Esto no deberías de estar viendolo</div> 
             </div>
         </div>
         <div class="status-server">
@@ -24,11 +24,11 @@
             <div class="news-columns">
                 <div class="news-list content-scroll">
                     <div class="news-block">    
-                        <div class="news-header">
-                            <div class="header-text">
-                                <div class="titlenews">Noticias</div>
-                            </div>
-                        </div>
+            <div class="news-header">
+                <div class="header-text">
+                    <div class="titlenews" data-translate="home.news">Noticias</div>
+                </div>
+            </div>
                         <div class="news-content">
                         </div>
                     </div>
@@ -40,10 +40,9 @@
                                 <div class="titlechangelog">Pyro Client</div>
                             </div>
                         </div>
-                        <div class="news-content">
-                            <div class="bbWrapper">
-                                <p>Si lees esto es que algo muy malo está occuriendo.</p>
-                            </div>
+                        <div class="news-content">                        <div class="bbWrapper">
+                            <p data-translate="home.error_message">Si lees esto es que algo muy malo está occuriendo.</p>
+                        </div>
                         </div>
                     </div>
                     <div class="news-blockshop" hidden>    
@@ -52,10 +51,9 @@
                                 <div class="titleshop">Pyro Network Store</div>
                             </div>
                         </div>
-                        <div class="news-content">
-                            <div class="bbWrapper">
-                                <p><a class="storebutton">Acceder a la tienda</a></p>
-                            </div>
+                        <div class="news-content">                        <div class="bbWrapper">
+                            <p><a class="storebutton" data-translate="home.access_store">Acceder a la tienda</a></p>
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -74,10 +72,10 @@
         </div>
         <div class="play-elements">
             <div class="play-instance">
-                <button class="play-btn">JUGAR</button>
+                <button class="play-btn" data-translate="home.play_button">JUGAR</button>
             </div>
             <div class="info-starting-game">
-                <div class="info-starting-game-text">Conectando...</div>
+                <div class="info-starting-game-text" data-translate="home.connecting">Conectando...</div>
                 <progress value="0" max="0" class="progress-bar"></progress>
             </div>
         </div>
@@ -112,7 +110,47 @@
     <div class="instance-popup">
         <div class="instances-tab">
             <div class="close-popup icon-close"></div>
-            <p>Clientes disponibles:</p>
+            <p><span data-translate="home.available_clients">Clientes disponibles</span>:</p>
+            
+            <!-- Loading elements positioned outside of instances-grid-container -->
+            <div class="skeleton-grid" style="display: none;">
+                <div class="skeleton-instance">
+                    <div class="skeleton-image"></div>
+                    <div class="skeleton-name"></div>
+                    <div class="skeleton-status"></div>
+                </div>
+                <div class="skeleton-instance">
+                    <div class="skeleton-image"></div>
+                    <div class="skeleton-name"></div>
+                    <div class="skeleton-status"></div>
+                </div>
+                <div class="skeleton-instance">
+                    <div class="skeleton-image"></div>
+                    <div class="skeleton-name"></div>
+                    <div class="skeleton-status"></div>
+                </div>
+                <div class="skeleton-instance">
+                    <div class="skeleton-image"></div>
+                    <div class="skeleton-name"></div>
+                    <div class="skeleton-status"></div>
+                </div>
+                <div class="skeleton-instance">
+                    <div class="skeleton-image"></div>
+                    <div class="skeleton-name"></div>
+                    <div class="skeleton-status"></div>
+                </div>
+                <div class="skeleton-instance">
+                    <div class="skeleton-image"></div>
+                    <div class="skeleton-name"></div>
+                    <div class="skeleton-status"></div>
+                </div>
+            </div>
+            
+            <div class="loading-container" style="display: none;">
+                <div class="loading-spinner"></div>
+                <div class="loading-text" data-translate="home.loading_instances">Cargando clientes disponibles...</div>
+            </div>
+            
             <div class="instances-grid-container">
                 <div class="instances-grid"></div>
             </div>
@@ -121,12 +159,12 @@
 
     <div class="add-instance-popup">
         <div class="popup-content">
-            <h2>Agregar Instancia</h2>
-            <p class="warning-message">El código introducido será asignado a la cuenta seleccionada actualmente.</p>
-            <input type="text" class="add-instance-input" placeholder="Introduce el código">
+            <h2 data-translate="home.add_instance_title">Agregar Instancia</h2>
+            <p class="warning-message" data-translate="home.add_instance_info">El código introducido será asignado a la cuenta seleccionada actualmente.</p>
+            <input type="text" class="add-instance-input" placeholder="Code">
             <div class="buttons-container">
-                <button class="add-instance-confirm">Agregar</button>
-                <button class="add-instance-cancel">Cancelar</button>
+                <button class="add-instance-confirm" data-translate="buttons.add">Agregar</button>
+                <button class="add-instance-cancel" data-translate="buttons.cancel">Cancelar</button>
             </div>
         </div>
     </div>

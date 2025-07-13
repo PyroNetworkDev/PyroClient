@@ -143,4 +143,5 @@ img {
 .progress::-webkit-progress-value {
     background-color: white;
     border-radius: 10px;
+    transition: width 0.2s ease;
 }

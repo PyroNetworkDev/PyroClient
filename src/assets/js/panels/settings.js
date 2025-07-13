@@ -3,8 +3,10 @@
  * @license CC-BY-NC 4.0 - https://creativecommons.org/licenses/by-nc/4.0
  */
 
-import { changePanel, accountSelect, database, Slider, config, setStatus, popup, appdata, clickableHead, getTermsAndConditions, setPerformanceMode, isPerformanceModeEnabled, getDiscordUsername, getDiscordPFP, setDiscordUsername } from '../utils.js'
+import { changePanel, accountSelect, database, Slider, config, setStatus, popup, appdata, clickableHead, getTermsAndConditions, setPerformanceMode, isPerformanceModeEnabled, getDiscordUsername, getDiscordPFP, setDiscordUsername, localization } from '../utils.js'
 import { deleteDiscordToken } from '../MKLib.js'
+import { listAvailableJavaInstallations, cleanupUnusedJava, getRuntimePath, getGameStatus } from '../utils/java-manager.js';
+
 const os = require('os');
 const { shell, ipcRenderer, dialog } = require('electron');
 const { marked } = require('marked');
@@ -25,6 +27,7 @@ class Settings {
         this.socials()
         this.terms()
         this.discordAccount()
+        this.initializeLanguageSelector()
         
         this.applyPerfModeOverridesIfNeeded();
         this.addAccountButtonEffects(); // Añadir efectos de pulsación a los botones de cuentas
@@ -32,6 +35,13 @@ class Settings {
         
         // Make sure the add account button is visible
         this.ensureAddAccountButton();
+        
+        // Aplicar traducciones al cargar el panel
+        setTimeout(() => {
+            if (localization && localization.initialized) {
+                localization.forceApplyTranslations();
+            }
+        }, 100);
     }
     
     // Ensure the "Add Account" button is displayed
@@ -61,7 +71,7 @@ class Settings {
                 <div class="add-profile">
                     <div class="icon-account-add"></div>
                 </div>
-                <div class="add-text-profile">Añadir una cuenta</div>
+                <div class="add-text-profile" data-translate="accounts.add_account"></div>
             `;
             
             // Apply button style
@@ -72,6 +82,13 @@ class Settings {
             
             // Add to the accounts list
             accountsList.appendChild(addAccountBtn);
+            
+            // Apply translations to the new element
+            setTimeout(() => {
+                if (localization && localization.initialized) {
+                    localization.applyTranslationsToElement(addAccountBtn);
+                }
+            }, 50);
             
             // Apply button effects
             this.applyAccountButtonEffect(addAccountBtn);
@@ -94,12 +111,6 @@ class Settings {
             this.applyButtonPressEffect(resolutionResetBtn);
         }
 
-        // Aplicar efectos al botón de reset de max-files
-        const maxFilesResetBtn = document.querySelector('.max-files-btn');
-        if (maxFilesResetBtn) {
-            this.applyButtonPressEffect(maxFilesResetBtn);
-        }
-
         // Aplicar efectos a los botones de gestión de datos
         const dataManagementBtns = document.querySelectorAll('.data-management-btn');
         dataManagementBtns.forEach(button => {
@@ -107,7 +118,7 @@ class Settings {
         });
 
         // Aplicar efectos a los campos numéricos
-        const numericInputs = document.querySelectorAll('.input-resolution, .input-max-files');
+        const numericInputs = document.querySelectorAll('.input-resolution');
         numericInputs.forEach(input => {
             input.addEventListener('focus', () => {
                 input.style.borderColor = 'var(--box-button)';
@@ -144,6 +155,12 @@ class Settings {
                 }
             });
         });
+
+        // Aplicar efectos al dropdown de idioma
+        const languageSelectBtn = document.querySelector('.language-select-btn');
+        if (languageSelectBtn) {
+            this.applyButtonPressEffect(languageSelectBtn);
+        }
     }
 
 
@@ -358,8 +375,8 @@ class Settings {
                 let id = e.target.id;
                 if (e.target.classList.contains('account')) {
                     popupAccount.openPopup({
-                        title: 'Iniciar sesión',
-                        content: 'Espere, por favor...',
+                        title: localization.t('accounts.logging_in'),
+                        content: localization.t('accounts.please_wait'),
                         color: 'var(--color)'
                     });
 
@@ -381,8 +398,8 @@ class Settings {
                         console.error(`No se encontró cuenta con ID: ${id}`);
                         popupAccount.closePopup();
                         popupAccount.openPopup({
-                            title: 'Error',
-                            content: `No se pudo encontrar la cuenta seleccionada (ID: ${id}). La cuenta podría haber sido eliminada o dañada.`,
+                            title: localization.t('launcher.error'),
+                            content: localization.t('accounts.account_not_found') + ` (ID: ${id}). ` + localization.t('accounts.account_corrupted'),
                             color: 'red',
                             options: true
                         });
@@ -478,7 +495,6 @@ class Settings {
                             instance_selct: null,
                             launcher_config: {
                                 closeLauncher: "close-launcher",
-                                download_multi: 3,
                                 theme: "auto",
                                 music_muted: false,
                                 performance_mode: false
@@ -865,17 +881,32 @@ class Settings {
     async javaPath() {
         let javaPathText = document.querySelector(".java-path-txt");
         if (javaPathText) {
-            javaPathText.textContent = `${await appdata()}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}/runtime`;
+            try {
+                // Obtener la ruta real del runtime desde java-manager
+                const runtimePath = getRuntimePath();
+                if (runtimePath) {
+                    javaPathText.textContent = runtimePath;
+                } else {
+                    // Fallback a la ruta calculada
+                    javaPathText.textContent = `${await appdata()}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}/runtime`;
+                }
+            } catch (error) {
+                console.warn('Error obteniendo ruta de runtime:', error);
+                javaPathText.textContent = `${await appdata()}/${process.platform == 'darwin' ? this.config.dataDirectory : `.${this.config.dataDirectory}`}/runtime`;
+            }
         }
 
         let configClient = await this.db.readData('configClient')
-        let javaPath = configClient?.java_config?.java_path || 'Utilice la versión de java suministrada con el launcher';
+        let javaPath = configClient?.java_config?.java_path || localization.t('java.java_path_launcher');
         let javaPathInputTxt = document.querySelector(".java-path-input-text");
         let javaPathInputFile = document.querySelector(".java-path-input-file");
         
         if (javaPathInputTxt) {
             javaPathInputTxt.value = javaPath;
         }
+
+        // Mostrar información sobre instalaciones automáticas de Java
+        await this.displayJavaInfo();
 
         let javaPathSetBtn = document.querySelector(".java-path-set");
         let javaPathResetBtn = document.querySelector(".java-path-reset");
@@ -901,6 +932,9 @@ class Settings {
                     }
                     configClient.java_config.java_path = file
                     await this.db.updateData('configClient', configClient);
+                    
+                    // Actualizar información de Java
+                    await this.displayJavaInfo();
                 } else alert("El nombre del archivo debe ser java o javaw");
             });
         }
@@ -909,11 +943,297 @@ class Settings {
             javaPathResetBtn.addEventListener("click", async () => {
                 let configClient = await this.db.readData('configClient')
                 if (javaPathInputTxt) {
-                    javaPathInputTxt.value = 'Utilice la versión de java suministrada con el launcher';
+                    javaPathInputTxt.value = localization.t('java.java_path_launcher');
                 }
                 configClient.java_config.java_path = null
                 await this.db.updateData('configClient', configClient);
+                
+                // Actualizar información de Java
+                await this.displayJavaInfo();
             });
+        }
+    }
+
+    async displayJavaInfo() {
+        try {
+            console.log('🔍 Iniciando displayJavaInfo...');
+            
+            // Buscar contenedor para información de Java
+            let javaInfoContainer = document.querySelector(".java-info-container");
+            
+            if (!javaInfoContainer) {
+                console.log('📦 Creando contenedor de Java info...');
+                // Buscar el contenedor de java path de manera más específica
+                const javaPathInput = document.querySelector('.java-path-input-text');
+                const settingsBox = javaPathInput ? javaPathInput.closest('.settings-elements-box') : null;
+                
+                if (settingsBox) {
+                    javaInfoContainer = document.createElement('div');
+                    javaInfoContainer.className = 'java-info-container';
+                    settingsBox.appendChild(javaInfoContainer);
+                    console.log('✅ Contenedor de Java info creado');
+                } else {
+                    console.error('❌ No se pudo encontrar el contenedor parent para Java info');
+                }
+            }
+            
+            if (!javaInfoContainer) {
+                console.warn('❌ No se pudo encontrar o crear el contenedor para información de Java');
+                return;
+            }
+            
+            console.log('🔍 Obteniendo instalaciones de Java...');
+            
+            // Obtener instalaciones de Java disponibles
+            const installations = await listAvailableJavaInstallations();
+            
+            
+            let infoHTML = `
+                <div class="java-info-title">🔧 ${localization.t('java.java_management')}</div>
+                <div class="java-info-description">
+                    ${localization.t('java.java_management_info')}
+                </div>
+                <div class="java-runtime-path">
+                    📁 ${localization.t('java.java_runtime_directory_title')}: <code>${getRuntimePath() || localization.t('java.java_runtime_directory_not_initialized')}</code>
+                </div>
+            `;
+            
+            if (installations.length > 0) {
+                infoHTML += `<div class="java-installations-title">📦 ${localization.t('java.java_installed_versions_title')}:</div>`;
+                infoHTML += `<div class="java-installations-list">`;
+                
+                for (const installation of installations) {
+                    const javaVersionStr = `Java ${installation.javaVersion.major}`;
+                    const sizeInfo = await this.getDirectorySize(installation.directory);
+                    
+                    infoHTML += `
+                        <div class="java-installation-item">
+                            <div class="java-installation-header">
+                                <span class="java-version">${javaVersionStr}</span>
+                                <span class="java-size">${sizeInfo}</span>
+                            </div>
+                            <div class="java-installation-path">${installation.path}</div>
+                            <div class="java-installation-compatibility">
+                                ${localization.t('java.java_installed_versions_compatiblewith')}: ${this.getMinecraftCompatibility(installation.version)}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                infoHTML += `</div>`;
+                
+                // Agregar botón de limpieza
+                infoHTML += `
+                    <div class="java-management-buttons">
+                        <button class="java-cleanup-btn" id="java-cleanup-btn">🗑️ ${localization.t('java.java_delete_installations')}</button>
+                        <button class="java-refresh-btn" id="java-refresh-btn">🔄 ${localization.t('java.java_installed_refresh')}</button>
+                    </div>
+                `;
+            } else {
+                infoHTML += `
+                    <div class="java-installations-empty">
+                        📥 ${localization.t('java.java_no_versions_installed')}
+                    </div>
+                    <div class="java-management-buttons">
+                        <button class="java-refresh-btn" id="java-refresh-btn">🔄 ${localization.t('java.java_installed_refresh')}</button>
+                    </div>
+                `;
+            }
+            
+            javaInfoContainer.innerHTML = infoHTML;
+            
+            // Agregar event listeners para los botones
+            const cleanupBtn = document.getElementById('java-cleanup-btn');
+            const refreshBtn = document.getElementById('java-refresh-btn');
+            
+            if (cleanupBtn) {
+                cleanupBtn.addEventListener('click', () => this.showJavaCleanupDialog());
+            }
+            
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => this.displayJavaInfo());
+            }
+            
+        } catch (error) {
+            console.error('❌ Error mostrando información de Java:', error);
+            
+            // Mostrar información básica aunque falle
+            if (javaInfoContainer) {
+                javaInfoContainer.innerHTML = `
+                    <div class="java-info-title">🔧 ${localization.t('java.java_management')}</div>
+                    <div class="java-info-description">
+                        ${localization.t('java.java_management_info')}
+                    </div>
+                    <div class="java-installations-empty">
+                        ⚠️ Error al cargar información de Java: ${error.message}
+                    </div>
+                `;
+            }
+        }
+    }
+
+    getMinecraftCompatibility(javaVersion) {
+        const compatibility = {
+            'java8': 'Minecraft 1.7 - 1.16.5',
+            'java17': 'Minecraft 1.17 - 1.20.6',
+            'java21': 'Minecraft 1.21+'
+        };
+        
+        return compatibility[javaVersion] || 'Versiones específicas';
+    }
+
+    async getDirectorySize(dirPath) {
+        try {
+            const stats = await this.calculateDirectorySize(dirPath);
+            const sizeMB = Math.round(stats / (1024 * 1024));
+            return `${sizeMB} MB`;
+        } catch (error) {
+            return 'Tamaño desconocido';
+        }
+    }
+
+    async calculateDirectorySize(dirPath) {
+        const fs = require('fs').promises;
+        const path = require('path');
+        
+        let totalSize = 0;
+        
+        try {
+            const items = await fs.readdir(dirPath);
+            
+            for (const item of items) {
+                const itemPath = path.join(dirPath, item);
+                const stats = await fs.stat(itemPath);
+                
+                if (stats.isDirectory()) {
+                    totalSize += await this.calculateDirectorySize(itemPath);
+                } else {
+                    totalSize += stats.size;
+                }
+            }
+        } catch (error) {
+            // Ignorar errores de permisos
+        }
+        
+        return totalSize;
+    }
+
+    async showJavaCleanupDialog() {
+        try {
+            // Verificar si el juego está en progreso
+            const gameStatus = getGameStatus();
+            
+            const popup = new (await import('../utils/popup.js')).default();
+            
+            if (gameStatus.inProgress) {
+                // Mostrar advertencia si el juego está ejecutándose
+                const warningResult = await new Promise(resolve => {
+                    popup.openDialog({
+                        title: localization.t('java.java_game_in_progress'),
+                        content: `🎮 ${localization.t('java.java_game_warning')}<br>`,
+                        options: true,
+                        acceptText: localization.t('java.java_cleanup_force'),
+                        cancelText: localization.t('buttons.cancel'),
+                        callback: resolve
+                    });
+                });
+                
+                if (warningResult === 'cancel') {
+                    return;
+                }
+                
+                // Si el usuario eligió forzar, continuar con forceClean = true
+                return this.executeJavaCleanup(true, popup);
+            }
+            
+            // Si no hay juego en progreso, mostrar diálogo normal
+            const dialogResult = await new Promise(resolve => {
+                popup.openDialog({
+                    title: localization.t('java.java_cleanup'),
+                    content: `${localization.t('java.java_cleanup_confirm')}<br>
+                    ${localization.t('java.java_cleanup_info')}<br><br>
+                    ⚠️ ${localization.t('java.java_cleanup_warning')}`,
+                    options: true,
+                    callback: resolve
+                });
+            });
+            
+            if (dialogResult === 'cancel') {
+                return;
+            }
+            
+            // Ejecutar limpieza normal
+            return this.executeJavaCleanup(false, popup);
+            
+        } catch (error) {
+            console.error('❌ Error en diálogo de limpieza de Java:', error);
+            const popup = new (await import('../utils/popup.js')).default();
+            popup.openPopup({
+                title: localization.t('errors.java_cleanup_error'),
+                content: `❌ ${localization.t('errors.java_cleanup_error')}: ${error.message}`,
+                color: "red",
+                options: true
+            });
+        }
+    }
+    
+    async executeJavaCleanup(forceClean, popup) {
+        try {
+            // Mostrar progreso
+            popup.closePopup();
+            popup.openPopup({
+                title: localization.t('java.java_cleanup_progress'),
+                content: forceClean ? 
+                    `${localization.t('java.java_cleanup_force')}... ⚠️` :
+                    localization.t('notifications.please_wait'),
+                color: "var(--color)",
+                background: false
+            });
+            
+            // Ejecutar limpieza
+            const result = await cleanupUnusedJava(forceClean);
+            popup.closePopup();
+            
+            if (result.success) {
+                // Mostrar resultados detallados
+                const results = result.results;
+                let contentMsg = `✅ ${localization.t('java.java_cleanup_success')}.\n\n`;
+                
+                if (results.cleaned.length > 0) {
+                    contentMsg += `🗑️ ${localization.t('accounts.account_deleted')}: ${results.cleaned.length} instalaciones<br>`;
+                    contentMsg += `💾 ${localization.t('launcher_settings.directory_size')}: ${Math.round(results.freedSpace / (1024 * 1024))} MB<br>`;
+                }
+                
+                if (results.skipped.length > 0) {
+                    contentMsg += `⏭️ Saltadas: ${results.skipped.length} instalaciones (en uso)<br>`;
+                }
+                
+                if (results.errors.length > 0) {
+                    contentMsg += `❌ Errores: ${results.errors.length} instalaciones<br>`;
+                }
+                
+                contentMsg += `Tamaño total procesado: ${Math.round(results.totalSize / (1024 * 1024))} MB<br>`;
+                
+                popup.openPopup({
+                    title: localization.t('java.java_cleanup_success'),
+                    content: contentMsg,
+                    color: "var(--color)",
+                    options: true
+                });
+                
+                // Actualizar la información mostrada
+                await this.displayJavaInfo();
+            } else {
+                popup.openPopup({
+                    title: localization.t('java.java_cleanup_error'),
+                    content: `❌ ${localization.t('java.java_cleanup_error')}: ${result.error}`,
+                    color: "red",
+                    options: true
+                });
+            }
+            
+        } catch (error) {
+            console.error('❌ Error en limpieza de Java:', error);
         }
     }
 
@@ -952,31 +1272,6 @@ class Settings {
     async launcher() {
         let configClient = await this.db.readData('configClient');
 
-        let maxDownloadFiles = configClient?.launcher_config?.download_multi || 3;
-        let maxDownloadFilesInput = document.querySelector(".max-files");
-        let maxDownloadFilesReset = document.querySelector(".max-files-reset");
-        
-        if (maxDownloadFilesInput) {
-            maxDownloadFilesInput.value = maxDownloadFiles;
-
-            maxDownloadFilesInput.addEventListener("change", async () => {
-                let configClient = await this.db.readData('configClient')
-                configClient.launcher_config.download_multi = maxDownloadFilesInput.value;
-                await this.db.updateData('configClient', configClient);
-            });
-        }
-
-        if (maxDownloadFilesReset) {
-            maxDownloadFilesReset.addEventListener("click", async () => {
-                let configClient = await this.db.readData('configClient')
-                if (maxDownloadFilesInput) {
-                    maxDownloadFilesInput.value = 3;
-                }
-                configClient.launcher_config.download_multi = 3;
-                await this.db.updateData('configClient', configClient);
-            });
-        }
-
         const performanceModeCheckbox = document.querySelector(".performance-mode-checkbox");
         if (performanceModeCheckbox) {
             let configClient = await this.db.readData('configClient');
@@ -990,9 +1285,8 @@ class Settings {
                 let performanceModePopup = new popup();
                 let dialogResult = await new Promise((resolve) => {
                     performanceModePopup.openDialog({
-                      title: performanceModeCheckbox.checked ? 'Modo de rendimiento activado' : 'Modo de rendimiento desactivado',
-                      content:
-                        "Para aplicar completamente los cambios del modo de rendimiento, es necesario reiniciar el launcher. Esto eliminará todas las transiciones y efectos visuales para mejorar el rendimiento. <br><br>¿Desea reiniciar el launcher ahora?",
+                      title: performanceModeCheckbox.checked ? localization.t('launcher_settings.performance_mode_enabled') : localization.t('launcher_settings.performance_mode_disabled'),
+                      content: localization.t('launcher_settings.performance_mode_restart') + "<br><br>" + localization.t('launcher_settings.performance_mode_restart_confirm'),
                       options: true,
                       callback: resolve,
                     });
@@ -1046,14 +1340,30 @@ class Settings {
                 this.handleDeleteAssets();
             });
         }
+
+        // Botones de herramientas de desarrollo
+        const openConsoleBtn = document.querySelector('.open-console-btn');
+        const openLogsFolderBtn = document.querySelector('.open-logs-folder-btn');
+
+        if (openConsoleBtn) {
+            openConsoleBtn.addEventListener('click', () => {
+                this.handleOpenConsole();
+            });
+        }
+
+        if (openLogsFolderBtn) {
+            openLogsFolderBtn.addEventListener('click', () => {
+                this.handleOpenLogsFolder();
+            });
+        }
     }
 
     async handleResetConfig() {
         const resetPopup = new popup();
         const result = await new Promise(resolve => {
             resetPopup.openDialog({
-                title: 'Reiniciar configuración',
-                content: '¿Estás seguro de que quieres reiniciar toda la configuración del launcher? Esta acción no puede deshacerse y el launcher se reiniciará.<br><br>Los archivos del juego (assets, bibliotecas, instancias) no se eliminarán.',
+                title: localization.t('launcher_settings.reset_config'),
+                content: localization.t('launcher_settings.reset_config_confirm') + '<br><br>' + localization.t('launcher_settings.reset_config_warning'),
                 options: true,
                 callback: resolve
             });
@@ -1066,8 +1376,8 @@ class Settings {
         try {
             const processingPopup = new popup();
             processingPopup.openPopup({
-                title: 'Reiniciando configuración',
-                content: 'Por favor, espera mientras se reinicia la configuración...',
+                title: localization.t('launcher_settings.reset_config_progress'),
+                content: localization.t('notifications.please_wait'),
                 color: 'var(--color)'
             });
             
@@ -1087,8 +1397,8 @@ class Settings {
             console.error('Error resetting config:', error);
             const errorPopup = new popup();
             errorPopup.openPopup({
-                title: 'Error',
-                content: `Ha ocurrido un error al reiniciar la configuración: ${error.message}`,
+                title: localization.t('launcher.error'),
+                content: `${localization.t('launcher_settings.reset_config')}: ${error.message}`,
                 color: 'red',
                 options: true
             });
@@ -1099,8 +1409,8 @@ class Settings {
         const deletePopup = new popup();
         const result = await new Promise(resolve => {
             deletePopup.openDialog({
-                title: 'Eliminar todos los datos',
-                content: '⚠️ ADVERTENCIA ⚠️<br><br>¿Estás seguro de que quieres eliminar TODOS los datos del launcher? Esta acción eliminará:<br>- Todas las configuraciones<br>- Todas las instancias de juego<br>- Todos los assets y bibliotecas descargados<br><br>Esta acción no puede deshacerse y el launcher se reiniciará.',
+                title: localization.t('launcher_settings.delete_all'),
+                content: '⚠️ ' + localization.t('launcher.warning') + ' ⚠️<br><br>' + localization.t('launcher_settings.delete_all_confirm') + '<br>' + localization.t('launcher_settings.delete_all_warning'),
                 options: true,
                 callback: resolve
             });
@@ -1260,7 +1570,7 @@ class Settings {
             const result = await getTermsAndConditions();
         
             const termsContainer = document.querySelector('.info-container');
-            const lastModifiedText = `<strong>Última modificación:</strong> ${result.lastModified === 'desconocida' ? 'Desconocida' : new Date(result.lastModified).toLocaleString()}`;
+            const lastModifiedText = `<strong>${localization.t('info_tab.last_update')}:</strong> ${result.lastModified === 'desconocida' ? 'Desconocida' : new Date(result.lastModified).toLocaleString()}`;
         
             const metaInfoHTML = `
                 <p>${lastModifiedText}</p>
@@ -1335,6 +1645,324 @@ class Settings {
                 }
             });
         }
+    }
+
+    // Manejar apertura de consola
+    handleOpenConsole() {
+        console.log('Abriendo consola...');
+        ipcRenderer.send('console-window-open');
+    }
+
+    // Manejar apertura de carpeta de logs
+    async handleOpenLogsFolder() {
+        try {
+            console.log('Abriendo carpeta de logs...');
+            const { shell } = require('electron');
+            const path = require('path');
+            const fs = require('fs');
+            
+            // Obtener el productName del package.json
+            const pkg = require('../../../package.json');
+            const productName = pkg.productname || 'Miguelki Network MC Launcher';
+            
+            // Usar la ruta estándar: %APPDATA%/MiguelkiNetwork/ProductName/logs
+            const appDataPath = await ipcRenderer.invoke('appData');
+            const logsPath = path.join(appDataPath, 'MiguelkiNetwork', productName, 'logs');
+            
+            // Crear el directorio si no existe
+            if (!fs.existsSync(logsPath)) {
+                fs.mkdirSync(logsPath, { recursive: true });
+            }
+            
+            // Abrir la carpeta
+            shell.openPath(logsPath);
+        } catch (error) {
+            console.error('Error abriendo carpeta de logs:', error);
+            
+            const errorPopup = new popup();
+            errorPopup.openPopup({
+                title: 'Error',
+                content: 'No se pudo abrir la carpeta de logs: ' + error.message,
+                color: 'red',
+                options: true
+            });
+        }
+   }
+
+    // Función para inicializar el selector de idioma
+    async initializeLanguageSelector() {
+        try {
+            console.log('Inicializando selector de idioma...');
+            
+            // Mapa de códigos de país para flagsapi.com
+            const languageCountryCodes = {
+                'auto': null, // Para automático usaremos un icono especial
+                'es-ES': 'ES',
+                'en-EN': 'GB', // Corregido: inglés usa bandera británica
+                'fr-FR': 'FR',
+                'de-DE': 'DE',
+                'it-IT': 'IT',
+                'pt-BR': 'BR',
+                'pt-PT': 'PT',
+                'ru-RU': 'RU',
+                'ja-JP': 'JP',
+                'ko-KR': 'KR',
+                'zh-CN': 'CN',
+                'zh-TW': 'TW',
+                'nl-NL': 'NL',
+                'sv-SE': 'SE',
+                'no-NO': 'NO',
+                'da-DK': 'DK',
+                'fi-FI': 'FI',
+                'pl-PL': 'PL',
+                'cs-CZ': 'CZ',
+                'hu-HU': 'HU',
+                'tr-TR': 'TR',
+                'ar-SA': 'SA',
+                'he-IL': 'IL',
+                'th-TH': 'TH',
+                'vi-VN': 'VN',
+                'id-ID': 'ID',
+                'ms-MY': 'MY',
+                'uk-UA': 'UA',
+                'bg-BG': 'BG',
+                'ro-RO': 'RO',
+                'hr-HR': 'HR',
+                'sr-RS': 'RS',
+                'sl-SI': 'SI',
+                'sk-SK': 'SK',
+                'lt-LT': 'LT',
+                'lv-LV': 'LV',
+                'et-EE': 'EE'
+            };
+
+            // Función para crear elemento de bandera
+            const createFlagElement = (countryCode, isButton = false) => {
+                if (!countryCode) {
+                    // Para la opción automática, usar un icono especial
+                    const icon = document.createElement('div');
+                    icon.className = 'flag-icon';
+                    icon.textContent = '🌐';
+                    icon.style.background = 'linear-gradient(45deg, #4CAF50, #2196F3)';
+                    icon.style.color = 'white';
+                    icon.style.fontSize = isButton ? '18px' : '16px';
+                    return icon;
+                }
+                
+                const flagImg = document.createElement('img');
+                flagImg.className = 'flag-icon';
+                flagImg.src = `https://flagsapi.com/${countryCode}/flat/64.png`;
+                flagImg.alt = `${countryCode} flag`;
+                flagImg.loading = 'lazy';
+                
+                // Fallback en caso de error cargando la imagen
+                flagImg.onerror = function() {
+                    const fallbackIcon = document.createElement('div');
+                    fallbackIcon.className = 'flag-icon';
+                    fallbackIcon.textContent = '🏳️';
+                    fallbackIcon.style.background = 'rgba(255, 255, 255, 0.1)';
+                    fallbackIcon.style.color = 'white';
+                    fallbackIcon.style.fontSize = isButton ? '18px' : '16px';
+                    this.parentNode.replaceChild(fallbackIcon, this);
+                };
+                
+                return flagImg;
+            };
+
+            const languageBtn = document.querySelector('.language-select-btn');
+            const languagePopup = document.querySelector('.language-popup');
+            const languagesGrid = document.querySelector('.languages-grid');
+            const closePopupBtn = document.querySelector('.language-popup .close-popup');
+        
+            
+            if (!languageBtn || !languagePopup || !languagesGrid) {
+                console.warn('No se encontraron los elementos del selector de idioma');
+                return;
+            }
+
+            // Obtener idiomas disponibles
+            const availableLanguages = localization.getAvailableLanguages();
+
+            // Función para poblar el grid de idiomas
+            const populateLanguagesGrid = () => {
+                languagesGrid.innerHTML = '';
+
+                Object.entries(availableLanguages).forEach(([code, info]) => {
+                    const element = document.createElement('div');
+                    element.className = 'language-element';
+                    element.dataset.value = code;
+                    
+                    const content = document.createElement('div');
+                    content.className = 'language-element-content';
+                    
+                    const flag = createFlagElement(languageCountryCodes[code]);
+                    const text = document.createElement('span');
+                    text.className = 'language-text';
+                    text.textContent = `${info.nativeName} (${info.name})`;
+                    
+                    content.appendChild(flag);
+                    content.appendChild(text);
+                    element.appendChild(content);
+                    languagesGrid.appendChild(element);
+                });
+            };
+
+            // Establecer idioma actual
+            const currentLanguage = localization.getCurrentLanguage();
+            const configClient = await this.db.readData('configClient');
+            
+            // Determinar qué valor mostrar en el selector
+            let selectedValue = currentLanguage; // Usar el idioma actual por defecto
+            
+            if (configClient && configClient.language) {
+                selectedValue = configClient.language;
+            }
+            
+            console.log(`Estableciendo valor del selector a: ${selectedValue}`);
+            console.log(`Idioma actual: ${currentLanguage}`);
+            
+            // Actualizar la apariencia del botón
+            this.updateLanguageButton(selectedValue, availableLanguages, languageCountryCodes, createFlagElement);
+
+            // Event listener para abrir popup
+            languageBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                populateLanguagesGrid();
+                this.updateLanguageSelection(selectedValue);
+                languagePopup.classList.add('show');
+            });
+
+            // Event listener para cerrar popup
+            closePopupBtn.addEventListener('click', () => {
+                languagePopup.classList.remove('show');
+            });
+
+            // Cerrar popup al hacer click en el fondo
+            languagePopup.addEventListener('click', (e) => {
+                if (e.target === languagePopup) {
+                    languagePopup.classList.remove('show');
+                }
+            });
+
+            // Event listeners para las opciones de idioma
+            languagesGrid.addEventListener('click', async (e) => {
+                const element = e.target.closest('.language-element');
+                if (!element) return;
+
+                const selectedLanguage = element.dataset.value;
+                console.log(`Idioma seleccionado: ${selectedLanguage}`);
+                
+                // Cerrar popup
+                languagePopup.classList.remove('show');
+                
+                // Actualizar selección visual
+                selectedValue = selectedLanguage;
+                this.updateLanguageSelection(selectedValue);
+                
+                // Actualizar la apariencia del botón INMEDIATAMENTE
+                this.updateLanguageButton(selectedLanguage, availableLanguages, languageCountryCodes, createFlagElement);
+                
+                try {
+                    let targetLanguage = selectedLanguage;
+                    
+                    // Si es automático, usar fallback y mostrar advertencia
+                    if (selectedLanguage === 'auto') {
+                        targetLanguage = localization.fallbackLanguage || 'es-ES';
+                        console.warn('Idioma automático ya no es compatible, usando fallback');
+                    }
+                    
+                    // Verificar que el idioma objetivo esté disponible
+                    if (!localization.isLanguageAvailable(targetLanguage)) {
+                        console.warn(`Idioma ${targetLanguage} no disponible, usando fallback`);
+                        targetLanguage = localization.fallbackLanguage || 'es-ES';
+                    }
+                    
+                    // Cambiar idioma
+                    await localization.changeLanguage(targetLanguage);
+                    
+                    // Guardar configuración
+                    let configClient = await this.db.readData('configClient');
+                    if (!configClient) {
+                        configClient = {};
+                    }
+                    configClient.language = selectedLanguage;
+                    await this.db.updateData('configClient', configClient);
+                    
+                    // Mostrar notificación
+                    const notificationPopup = new popup();
+                    notificationPopup.openPopup({
+                        title: 'Idioma cambiado',
+                        content: `El idioma se ha cambiado a ${availableLanguages[targetLanguage]?.nativeName || targetLanguage}. Algunos cambios pueden requerir reiniciar la aplicación.`,
+                        color: 'var(--color)',
+                        options: true
+                    });
+                    
+                } catch (error) {
+                    console.error('Error cambiando idioma:', error);
+                    
+                    const errorPopup = new popup();
+                    errorPopup.openPopup({
+                        title: 'Error',
+                        content: `Error al cambiar idioma: ${error.message}`,
+                        color: 'red',
+                        options: true
+                    });
+                }
+            });
+            
+            console.log('Selector de idioma inicializado correctamente');
+            
+        } catch (error) {
+            console.error('Error inicializando selector de idioma:', error);
+        }
+    }
+
+    // Función para actualizar la selección visual en el grid
+    updateLanguageSelection(selectedValue) {
+        const elements = document.querySelectorAll('.language-element');
+        elements.forEach(element => {
+            element.classList.remove('active-language');
+            if (element.dataset.value === selectedValue) {
+                element.classList.add('active-language');
+            }
+        });
+    }
+
+    // Función auxiliar para actualizar la apariencia del botón
+    updateLanguageButton(selectedValue, availableLanguages, languageCountryCodes, createFlagElement) {
+        const languageText = document.querySelector('.language-btn-content .language-text');
+        const flagIcon = document.querySelector('.language-btn-content .flag-icon');
+        
+        if (!languageText || !flagIcon) {
+            console.warn('No se encontraron elementos del botón para actualizar');
+            return;
+        }
+        const languageInfo = availableLanguages[selectedValue];
+        if (languageInfo) {
+            languageText.textContent = `${languageInfo.nativeName} (${languageInfo.name})`;
+            const countryCode = languageCountryCodes[selectedValue];
+            
+            if (countryCode) {
+                // Limpiar estilos previos
+                flagIcon.style.background = '';
+                flagIcon.style.color = '';
+                flagIcon.style.fontSize = '';
+                flagIcon.textContent = '';
+                
+                // Crear nueva imagen de bandera
+                flagIcon.innerHTML = `<img src="https://flagsapi.com/${countryCode}/flat/64.png" alt="${countryCode} flag" loading="lazy" style="width: 28px; height: 21px; border-radius: 4px; object-fit: cover;" onerror="this.style.display='none'; this.parentNode.textContent='🏳️';">`;
+            } else {
+                flagIcon.textContent = '🏳️';
+                flagIcon.innerHTML = '';
+            }
+        } else {
+            console.warn(`Información de idioma no encontrada para: ${selectedValue}`);
+            languageText.textContent = selectedValue;
+            flagIcon.textContent = '🏳️';
+            flagIcon.innerHTML = '';
+        }
+        
+        console.log(`Botón actualizado para idioma: ${selectedValue}`);
     }
 }
 export default Settings;

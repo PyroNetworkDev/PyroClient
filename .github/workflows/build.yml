@@ -1,18 +1,26 @@
-# module du helios launcher
-name: Launcher Build
+name: 🚀 Launcher Build
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - 'README.md'
+      - 'loader-compatibility-report.md'
 
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    outputs:
+      release_id: ${{ steps.create_release.outputs.id }}
+      release_tag: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
       - name: Get version
-        run: echo "version=$(jq -r .version package.json)" >> $GITHUB_ENV
+        id: get_version
+        run: |
+          echo "version=$(jq -r .version package.json)" >> $GITHUB_ENV
+          echo "version=$(jq -r .version package.json)" >> $GITHUB_OUTPUT
       
       - name: Create Release
         id: create_release
@@ -56,3 +64,80 @@ jobs:
           GH_TOKEN: ${{ secrets.github_token }}
         run: npm run build
         shell: bash
+
+  update-compatibility:
+    needs: [create-release, build-launcher]
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🔍 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: 📥 Install Dependencies
+      run: |
+        npm ci
+        npm install tomate-loaders --save-dev
+
+    - name: 🔧 Run Compatibility Check
+      id: compatibility
+      run: |
+        echo "🚀 Starting compatibility check..."
+        node compatibilityChecker.js
+        echo "✅ Compatibility check completed"
+
+    - name: 📊 Display Results
+      run: |
+        echo "📊 Compatibility Check Results:"
+        echo "- Compatibility check completed successfully"
+
+    - name: 📄 Check for Changes
+      id: changes
+      run: |
+        git add README.md loader-compatibility-report.md
+        if git diff --staged --quiet; then
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+          echo "📝 No changes detected"
+        else
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+          echo "📝 Changes detected in compatibility files"
+          echo "Changes found:"
+          git diff --staged --name-only
+        fi
+  # en vez de poner el nombre del commit como update loader compatibility report ponerlo como Release <version> (utilizando el ultimo tag de la release)
+    - name: 🔄 Commit and Push Changes
+      if: steps.changes.outputs.has_changes == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "Miguelki Report Bot"
+        git commit -m "🔧 Relase ${{ needs.create-release.outputs.release_tag }} - $(date '+%Y-%m-%d %H:%M:%S') [skip ci]"
+        git push
+
+    - name: 🎯 Summary
+      run: |
+        echo "## 🔧 Loader Compatibility Update Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Changes Made:** ${{ steps.changes.outputs.has_changes }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📄 **Files Updated:**" >> $GITHUB_STEP_SUMMARY
+        echo "- README.md (compatibility section)" >> $GITHUB_STEP_SUMMARY
+        echo "- loader-compatibility-report.md (full report)" >> $GITHUB_STEP_SUMMARY
+
+    - name: 🐛 Handle Errors
+      if: failure()
+      run: |
+        echo "❌ Compatibility check failed"
+        echo "Please check the logs above for more details"
+        echo "Common issues:"
+        echo "- Network connectivity problems"
+        echo "- Missing dependencies"
+        echo "- API rate limits"
+        exit 1
